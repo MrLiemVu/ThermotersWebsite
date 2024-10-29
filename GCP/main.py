@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 import uuid  # For generating unique file names
+import os
 
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate("serviceAccountKey.json")  # Path to your service account key
@@ -16,57 +17,74 @@ app = Flask(__name__)
 @app.route("/", methods=["POST"])
 def run_algorithm():
     data = request.json
-    job_title = data.get('jobtitle')
-    sequence = data.get('sequence')
-    predictors = data.get('predictors')
-    brickplot = data.get('brickplot')
+    data_dict = dict()
+    file_id = uuid.uuid4()
+    data_dict["fileID"] = file_id
+    data_dict["jobTitle"] = data.get('jobtitle')
+    data_dict["sequence"]= data.get('sequence')
 
     # Run your algorithm function
-    result = generate_brickplot(sequence, predictors, brickplot)
+    predictors = data.get('predictors')
+    for predictor in predictors:
+        data_dict["predictor"] = data.get(predictor)
+        brickplot = generate_brickplot(sequence, predictor)
+        data_dict["brickplot"] = brickplot
+        data_dict["nextJob"] = ""
 
-    # Save result to Firebase Storage and Firestore
-    try:
-        file_url = save_result_to_storage(job_title, result)
-        store_result_in_firestore(job_title, file_url)
-    except Exception as e:
-        print(f"Error saving to Firestore or Storage: {e}")
-        return jsonify({"error": "Failed to save result"}), 500
+        # Save result to Firebase Storage and Firestore
+        try:
+            file_url = save_result_to_storage(brickplot, user_id, file_id)
+            data_dict["fileUrl"] = file_url
+            store_result_in_firestore(data_dict, user_id)
+        except Exception as e:
+            print(f"Error saving to Firestore or Storage: {e}")
+            return jsonify({"error": "Failed to save result"}), 500
 
-    return jsonify({
-        "job_title": job_title,
-        "result_url": file_url,
+    return 
+
+def store_result_in_firestore(data, user_id):
+    
+    # Updates Last job + last job's next job
+    prev_last_job = db.collection("users").document(user_id).get("lastJob")
+    db.collection("users").document(user_id).update({"lastJob": data["fileID"]})
+    db.collection("users").document(user_id).collection("jobhistory").document(prev_last_job).update({"nextJob": data["fileID"]})
+    
+    # Create a new document in the 'job_results' collection
+    doc_ref = db.collection("users").document(user).collection("jobhistory").document(data["fileID"]) 
+
+    # Store data in Firestore with a reference to the Storage file URL
+    doc_ref.set({
+        "brickplot": data["brickplot"],
+        "fileUrl": data["fileUrl"],
+        "jobTitle": data["jobTitle"],
+        "nextJob": data["nextJob"],
+        "predictor": data["predictor"],
+        "sequence": data["sequence"],
+        "status": 1,
+        "uploadedAt": firestore.SERVER_TIMESTAMP  # Firestore's server timestamp
     })
-
-def generate_brickplot(sequence, predictors, brickplot):
-    pass
-
-def save_result_to_storage(job_title, result):
+    print("Result successfully saved to Firestore with URL")
+    
+def save_result_to_storage(data, user_id, file_id):
     # Convert result to bytes for uploading
     result_bytes = result.encode('utf-8')
     
     # Create a unique filename
-    file_name = f"{job_title}_{uuid.uuid4()}.txt"
-    blob = bucket.blob(f"results/{file_name}")  # Path in Firebase Storage
+    file_name = f"{file_id}.txt"
+    blob = bucket.blob(f"userdata/{user_id}/{file_id}")  # Path in Firebase Storage
 
     # Upload result as a text file
     blob.upload_from_string(result_bytes, content_type="text/plain")
     
-    # Make file publicly accessible (optional, depending on your access rules)
-    blob.make_public()
+    # # Make file publicly accessible (optional, depending on your access rules)
+    # blob.make_public()
 
     # Get the public URL of the file
     file_url = blob.public_url
-    print("File uploaded to Storage with URL:", file_url)
     return file_url
 
-def store_result_in_firestore(job_title, file_url):
-    # Create a new document in the 'job_results' collection
-    doc_ref = db.collection("users").document(user).collection("jobhistory").document()   # Generates a unique ID for the document
+def env_vars(request):
+    return os.environ.get(request, "Specified environment variable is not set.")
 
-    # Store data in Firestore with a reference to the Storage file URL
-    doc_ref.set({
-        "job_title": job_title,
-        "result_url": file_url,
-        "created_at": firestore.SERVER_TIMESTAMP  # Firestore's server timestamp
-    })
-    print("Result successfully saved to Firestore with URL")
+def generate_brickplot(sequence, predictor):
+    pass
