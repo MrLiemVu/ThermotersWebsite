@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import app from '../../firebaseConfig';
 import { Button, Typography, Alert, Box } from '@mui/material';
 
@@ -15,28 +15,32 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    // Reference to the user's Firestore document
+    // Reference to the user document
     const userRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userRef);
 
-    // Check if user document exists
     if (!userSnap.exists()) {
-      // Add new user to Firestore if they are a new user
+      // Create new user document with basic info
       await setDoc(userRef, {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
-        createdAt: new Date(),
-      });
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+      }, { merge: true }); // Use merge to avoid overwriting existing data
       console.log("New user added to Firestore");
     } else {
-      console.log("User already exists in Firestore");
+      // Update last login for existing users
+      await setDoc(userRef, {
+        lastLogin: serverTimestamp()
+      }, { merge: true });
+      console.log("User login updated in Firestore");
     }
 
     return user;
   } catch (error) {
-    console.error("Google Sign-In Error:", error);
-    throw error; // Throwing error to handle it in the component
+    console.error("Error during sign in:", error);
+    throw error;
   }
 };
 

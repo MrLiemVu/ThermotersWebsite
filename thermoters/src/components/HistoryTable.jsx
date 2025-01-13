@@ -5,6 +5,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
   TablePagination, TableSortLabel, Paper, Box, Typography, Modal 
 } from '@mui/material';
+import { getAuth } from 'firebase/auth';
 
 const HistoryTable = () => {
   const [jobs, setJobs] = useState([]);
@@ -14,20 +15,29 @@ const HistoryTable = () => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [openModal, setOpenModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const auth = getAuth();
 
   // Fetch data from Firestore
   useEffect(() => {
     const fetchJobs = async () => {
-      const q = query(collection(db, "jobs"), orderBy("uploadedAt", "desc"));
-      const querySnapshot = await getDocs(q);
-      const jobData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setJobs(jobData);
+      if (!auth.currentUser) return; // Don't fetch if not logged in
+
+      try {
+        const userJobsRef = collection(db, "users", auth.currentUser.uid, "jobhistory");
+        const q = query(userJobsRef, orderBy("uploadedAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        const jobData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setJobs(jobData);
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      }
     };
+
     fetchJobs();
-  }, []);
+  }, [auth.currentUser]); // Re-fetch when user changes
 
   // Sorting handler
   const handleRequestSort = (property) => {

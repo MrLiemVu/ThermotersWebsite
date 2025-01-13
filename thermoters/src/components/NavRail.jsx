@@ -1,24 +1,35 @@
 // NavRail.js
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Typography, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import ScienceIcon from '@mui/icons-material/Science';
 import HistoryIcon from '@mui/icons-material/History';
 import LoginIcon from '@mui/icons-material/Login';
 import { Link } from 'react-router-dom';
+import LoginModal from './LoginModal';
 
 const NavRail = () => {
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  const handleLoginClick = (e) => {
+    e.preventDefault(); // Prevent navigation
+    setLoginOpen(true);
+  };
+
   return (
     <Box
       sx={{
         width: 240,
-        height: '100vh', // Make it span the full screen height
+        height: '100vh',
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#f3f4f6',
         p: 2,
         boxShadow: 3,
-        position: 'fixed', // Fixes it to the side of the screen
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        zIndex: 100
       }}
     >
       <Typography variant="h6" align="center" gutterBottom>
@@ -91,8 +102,7 @@ const NavRail = () => {
 
         <ListItem disablePadding>
           <ListItemButton
-            component={Link}
-            to="/login"
+            onClick={handleLoginClick}
             sx={{
               '&:hover': {
                 backgroundColor: '#e0e0e0',
@@ -109,6 +119,11 @@ const NavRail = () => {
           </ListItemButton>
         </ListItem>
       </List>
+
+      <LoginModal 
+        open={loginOpen} 
+        onClose={() => setLoginOpen(false)} 
+      />
     </Box>
   );
 };

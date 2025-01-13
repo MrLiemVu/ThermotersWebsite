@@ -1,58 +1,68 @@
 import React from 'react';
-import { Box, Typography, Paper, Grid } from '@mui/material';
+import { Box, Typography, Paper, Grid, Container } from '@mui/material';
 import brickplotImage from '../assets/brickplot_explanation.png';
 
 const HomePage = () => {
   return (
-    <Box
-      sx={{
-        mx: 'auto',
-        mt: '1%',
-        p: '5%',
-        maxWidth: '50%'
+    <Container 
+      disableGutters
+      sx={{ 
+        width: '100%',
+        height: '100%',
+        py: 4 
       }}
     >
-      {/* Title and Subtitle */}
-      <Box textAlign="center" mb={4}>
-        <Typography variant="h3" fontWeight="bold" gutterBottom>
-          Gene Expression Prediction
-        </Typography>
-        <Typography variant="h5" color="textSecondary">
-          Predicting bacterial sigma70 binding sites and constitutive expression levels
-        </Typography>
-      </Box>
+      <Grid container spacing={3}>
+        {/* Title and Subtitle Section - Full Width */}
+        <Grid item xs={12}>
+          <Box textAlign="center" mb={2}>
+            <Typography variant="h3" fontWeight="bold" gutterBottom>
+              Gene Expression Prediction
+            </Typography>
+            <Typography variant="h5" color="textSecondary">
+              Predicting bacterial sigma70 binding sites and constitutive expression levels
+            </Typography>
+          </Box>
+        </Grid>
 
-      {/* Introductory Text */}
-      <Box mb={4}>
-        <Typography variant="body1" paragraph>
-          At Lagator Lab, we developed a statistical thermodynamics model to identify binding of E. coli
-          sigma70 along any sequence and predict constitutive expression levels from any sequence given
-          sigma70 binding affinities.
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Paper: Mato Lagator*, Srdjan Sarikas*, Magdalena Steinrueck, David Toledo-Aparicio, Jonathan P Ballback, 
-          Calin C Guet; Gasper Tkacik (2022). Predicting bacterial promoter function and evolution from random 
-          sequences. eLife 11:e64543.{' '}
-          <a href="https://doi.org/10.7554/eLife.64543" target="_blank" rel="noopener noreferrer">
-            https://doi.org/10.7554/eLife.64543
-          </a>
-        </Typography>
-      </Box>
+        {/* Introduction Section - Full Width */}
+        <Grid item xs={12}>
+          <Paper elevation={3} sx={{ p: 3, backgroundColor: '#f3e5f5' }}>
+            <Typography variant="body1" paragraph>
+              At Lagator Lab, we developed a statistical thermodynamics model to identify binding of E. coli
+              sigma70 along any sequence and predict constitutive expression levels from any sequence given
+              sigma70 binding affinities.
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Paper: Mato Lagator*, Srdjan Sarikas*, Magdalena Steinrueck, David Toledo-Aparicio, Jonathan P Ballback, 
+              Calin C Guet; Gasper Tkacik (2022). Predicting bacterial promoter function and evolution from random 
+              sequences. eLife 11:e64543.{' '}
+              <a href="https://doi.org/10.7554/eLife.64543" target="_blank" rel="noopener noreferrer">
+                https://doi.org/10.7554/eLife.64543
+              </a>
+            </Typography>
+          </Paper>
+        </Grid>
 
-      {/* Description Cards */}
-      <Grid container spacing={3} mb={4}>
-        {/* First Card */}
+        {/* Two Description Cards - Side by Side */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: '#f3e5f5' }}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 3, 
+              backgroundColor: '#f3e5f5',
+              height: '100%' // Ensure same height
+            }}
+          >
             <Typography variant="h6" fontWeight="bold" gutterBottom>
               Identify binding of sigma70
             </Typography>
-            <Typography variant="body2" mb={2}>
+            <Typography variant="body2" paragraph>
               For each sequence, a "brick plot" will be determined. The brick plot shows the energy of sigma70 binding
               at every possible position in the sequence, with five different spacer configurations (capturing the
               natural variability in the length of the spacer between the -10 and -35 "feet" of RNA polymerase).
             </Typography>
-            <Typography variant="body2" mb={2}>
+            <Typography variant="body2">
               Each pixel in the brick plot corresponds to the most downstream DNA residue contacted by polymerase
               (i.e., the part of the -10 binding region that is closest to the transcriptional start site). The color of
               the pixel corresponds to the binding energy (lower energy = stronger binding).
@@ -60,13 +70,19 @@ const HomePage = () => {
           </Paper>
         </Grid>
 
-        {/* Second Card */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, backgroundColor: '#f3e5f5' }}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 3, 
+              backgroundColor: '#f3e5f5',
+              height: '100%' // Ensure same height
+            }}
+          >
             <Typography variant="h6" fontWeight="bold" gutterBottom>
               Predict constitutive expression levels
             </Typography>
-            <Typography variant="body2" mb={2}>
+            <Typography variant="body2" paragraph>
               There are three versions of the algorithm to convert sigma factor binding energies (contained in the brick
               plot) into predictions of expression levels (Pon):
             </Typography>
@@ -83,23 +99,37 @@ const HomePage = () => {
             </ul>
           </Paper>
         </Grid>
-      </Grid>
 
-      {/* Illustration Section */}
-      <Box textAlign="center" sx={{minWidth: 1250, maxWidth: '70%', mx: 'auto', mt: 4, p: 3, backgroundColor: '#f3e5f5', borderRadius: '8px', justifyContent: 'center'}}>
-        <Typography variant="h6" fontWeight="bold" mb={2}>
-          Brick plot illustration
-        </Typography>
-        <img
-          src={brickplotImage} // replace with your actual image path
-          alt="Brick plot illustration"
-          style={{ minWidth: 1000, maxWidth: '100%', height: 'auto', borderRadius: '8px' }}
-        />
-        <Typography variant="body2" color="textSecondary" mt={2}>
-          Funded by the Welcome Trust and the Royal Society fellowship to ML (Grant Number 216779/Z/19/Z).
-        </Typography>
-      </Box>
-    </Box>
+        {/* Brick Plot Illustration - Full Width */}
+        <Grid item xs={12}>
+          <Paper 
+            elevation={3}
+            sx={{ 
+              p: 3, 
+              backgroundColor: '#f3e5f5',
+              textAlign: 'center'
+            }}
+          >
+            <Typography variant="h6" fontWeight="bold" mb={2}>
+              Brick plot illustration
+            </Typography>
+            <Box 
+              component="img"
+              src={brickplotImage}
+              alt="Brick plot illustration"
+              sx={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: '8px'
+              }}
+            />
+            <Typography variant="body2" color="textSecondary" mt={2}>
+              Funded by the Welcome Trust and the Royal Society fellowship to ML (Grant Number 216779/Z/19/Z).
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Container>
   );
 };
 
