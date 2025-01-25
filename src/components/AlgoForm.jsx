@@ -362,20 +362,28 @@ const AlgoForm = () => {
         <Typography variant="subtitle2" gutterBottom>
           Supported File Types:
         </Typography>
-        <ul>
-          <li>Excel spreadsheet (.csv)</li>
-          <li>FASTA nucleic acid (.fna)</li>
-          <li>FASTA nucleotide of gene regions (.ffn)</li>
-          <li>FASTA amino acid (.faa)</li>
-        </ul>
+        <Box component="div" sx={{ pl: 2 }}>
+          <Typography variant="body2" component="div">
+            <ul>
+              <li>Excel spreadsheet (.csv)</li>
+              <li>FASTA nucleic acid (.fna)</li>
+              <li>FASTA nucleotide of gene regions (.ffn)</li>
+              <li>FASTA amino acid (.faa)</li>
+            </ul>
+          </Typography>
+        </Box>
         <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
           Predictor Types:
         </Typography>
-        <ul>
-          <li>Standard: estimates expression level only from a single sigma70 binding site with the lowest binding energy.</li>
-          <li>Standard + Spacer: accounts for energy penalties with different spacer configurations.</li>
-          <li>Standard + Spacer + Cumulative: accounts for all possible sigma70 binding sites with energy associated with different spacer configurations.</li>
-        </ul>
+        <Box component="div" sx={{ pl: 2 }}>
+          <Typography variant="body2" component="div">
+            <ul>
+              <li>Standard: estimates expression level only from a single sigma70 binding site with the lowest binding energy.</li>
+              <li>Standard + Spacer: accounts for energy penalties with different spacer configurations.</li>
+              <li>Standard + Spacer + Cumulative: accounts for all possible sigma70 binding sites with energy associated with different spacer configurations.</li>
+            </ul>
+          </Typography>
+        </Box>
         <Typography variant="h6" gutterBottom>
           How To Use
         </Typography>
@@ -397,13 +405,15 @@ const AlgoForm = () => {
           a string of Gs to help with interpretation.
           </Typography>
 
-          <Typography variant="body2" paragraph>
-          <strong>Output:</strong> Results will include:
-          <ul>
-            <li>Brick plot visualization</li>
-            <li>Predicted expression level (Pon)</li>
-          </ul>
-          </Typography>
+          <div>
+            <Typography variant="body2" paragraph>
+              <strong>Output:</strong> Results will include:
+            </Typography>
+            <ul>
+              <li>Brick plot visualization</li>
+              <li>Predicted expression level (Pon)</li>
+            </ul>
+          </div>
           <Typography variant="body2" paragraph>
           <strong>Sequence Limit:</strong> Registered users can input up to 100 sequences per 6 months.
         </Typography>

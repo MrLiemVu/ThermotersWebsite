@@ -22,14 +22,14 @@ class BrickPlotter:
         with open(model,"rb") as f:
             self.model = pickle.load(f, encoding="latin1")
             
-        if is_plus_one: # True - a brick points to +1; False - points to -40
+        if is_plus_one:
             self.shift = 40
         else:
             self.shift = 0
         self.is_rc = is_rc # True - reverse complement; False - original sequence
         self.max_value = max_value # maximum value for the color map
         self.min_value = min_value # minimum value for the color map
-        self.is_high_to_default = is_high_to_default # If True, visualize brickplot values > treshold as default value
+        self.is_high_to_default = is_high_to_default # If True, visualize brickplot values > threshold as default value
         self.threshold = threshold
         self.is_prefix_suffix = is_prefix_suffix # True - add Gs to the begining and end of each sequence to make it equal length and space for matrix
         

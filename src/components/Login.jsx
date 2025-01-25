@@ -1,41 +1,28 @@
 import React, { useState } from 'react';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import app from '../../firebaseConfig';
 import { Button, Typography, Alert, Box } from '@mui/material';
+import { auth, db } from '../../firebaseConfig';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
-// Initialize Firebase Auth, Firestore, and Google Provider
-const auth = getAuth(app);
-const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
 export const signInWithGoogle = async () => {
   try {
-    // Sign in with Google
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    // Reference to the user document
     const userRef = doc(db, "users", user.uid);
     const userSnap = await getDoc(userRef);
 
-    if (!userSnap.exists()) {
-      // Create new user document with basic info
-      await setDoc(userRef, {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-      }, { merge: true }); // Use merge to avoid overwriting existing data
-      console.log("New user added to Firestore");
-    } else {
-      // Update last login for existing users
-      await setDoc(userRef, {
-        lastLogin: serverTimestamp()
-      }, { merge: true });
-      console.log("User login updated in Firestore");
-    }
+    // Create or update user document
+    await setDoc(userRef, {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || 'Anonymous User',
+      authProvider: "google",
+      createdAt: userSnap.exists() ? userSnap.data().createdAt : serverTimestamp(),
+      lastLogin: serverTimestamp()
+    }, { merge: true });
 
     return user;
   } catch (error) {

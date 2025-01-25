@@ -1,5 +1,36 @@
 {
   "dataconnect": {
     "source": "dataconnect"
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": ["firebase.json", "**/.*", 
+      "**/node_modules/**", 
+      ".env"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin-allow-popups"
+          }
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "rules": "storage.rules",
+    "target": "thermoterswebsite.appspot.com"
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "target": "thermoterswebsite.appspot.com"
   }
 }

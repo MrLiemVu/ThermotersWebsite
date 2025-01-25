@@ -7,20 +7,34 @@ import {
   Alert,
   Backdrop
 } from '@mui/material';
-import { signInWithGoogle } from './Login'; // Reusing the existing login logic
+import { signInWithGoogle } from './Login';
+import { auth } from '../../firebaseConfig'; // Add this import if needed
 
 const LoginModal = ({ open, onClose }) => {
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
+  const [disabled, setDisabled] = useState(false);
 
   const handleGoogleSignIn = async () => {
     try {
       setError(null);
+      setDisabled(true);
       const signedInUser = await signInWithGoogle();
+      
+      // Wait for Firestore write to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setUser(signedInUser);
-      onClose(); // Close modal after successful login
+      onClose();
+      
+      // Force refresh to ensure authentication state is updated
+      window.location.reload();
     } catch (error) {
-      setError(error.message);
+      if (error.code !== 'auth/cancelled-popup-request') {
+        setError(error.message);
+      }
+    } finally {
+      setDisabled(false);
     }
   };
 
@@ -72,6 +86,7 @@ const LoginModal = ({ open, onClose }) => {
           onClick={handleGoogleSignIn}
           fullWidth
           sx={{ mt: 2 }}
+          disabled={disabled}
         >
           Login with Google
         </Button>
