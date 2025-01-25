@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "thermoterswebsite"
-  }
+  },
+  "targets": {
+    "thermoterswebsite": {
+      "storage": {
+        "thermoterswebsite.appspot.com": [
+          "thermoterswebsite.appspot.com"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

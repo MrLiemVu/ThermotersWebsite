@@ -47,10 +47,10 @@ def store_result_in_firestore(data, user_id):
     # Updates Last job + last job's next job
     prev_last_job = db.collection("users").document(user_id).get("lastJob")
     db.collection("users").document(user_id).update({"lastJob": data["fileID"]})
-    db.collection("users").document(user_id).collection("jobhistory").document(prev_last_job).update({"nextJob": data["fileID"]})
+    db.collection("users").document(user_id).collection("history").document(prev_last_job).update({"nextJob": data["fileID"]})
     
     # Create a new document in the 'job_results' collection
-    doc_ref = db.collection("users").document(user).collection("jobhistory").document(data["fileID"]) 
+    doc_ref = db.collection("users").document(user).collection("history").document(data["fileID"]) 
 
     # Store data in Firestore with a reference to the Storage file URL
     doc_ref.set({

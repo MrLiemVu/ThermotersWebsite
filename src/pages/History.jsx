@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography, Divider } from '@mui/material';
 import HistoryTable from '../components/HistoryTable';
 
-const JobHistoryPage = () => {
+const HistoryPage = () => {
   return (
     <Box sx={{ width: '100%' }}>
       {/* Title Section */}
@@ -31,4 +31,4 @@ const JobHistoryPage = () => {
   );
 };
 
-export default JobHistoryPage;
+export default HistoryPage;

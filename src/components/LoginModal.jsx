@@ -1,40 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Modal, 
   Box, 
   Typography, 
   Button, 
   Alert,
-  Backdrop
+  Backdrop,
+  CircularProgress
 } from '@mui/material';
-import { signInWithGoogle } from './Login';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../../firebaseConfig'; // Add this import if needed
+import { useAuthState } from 'react-firebase-hooks/auth';
+import GoogleIcon from '@mui/icons-material/Google';
 
 const LoginModal = ({ open, onClose }) => {
   const [error, setError] = useState(null);
-  const [user, setUser] = useState(null);
-  const [disabled, setDisabled] = useState(false);
+  const [user] = useAuthState(auth);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleGoogleSignIn = async () => {
+  useEffect(() => {
+    if (!user) {
+      setIsLoading(false); // Reset loading state when user logs out
+    }
+  }, [user]);
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
     try {
-      setError(null);
-      setDisabled(true);
-      const signedInUser = await signInWithGoogle();
-      
-      // Wait for Firestore write to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setUser(signedInUser);
-      onClose();
-      
-      // Force refresh to ensure authentication state is updated
-      window.location.reload();
-    } catch (error) {
-      if (error.code !== 'auth/cancelled-popup-request') {
-        setError(error.message);
-      }
+      await signInWithPopup(auth, new GoogleAuthProvider());
     } finally {
-      setDisabled(false);
+      setIsLoading(false);
+      onClose();
     }
   };
 
@@ -82,13 +78,13 @@ const LoginModal = ({ open, onClose }) => {
 
         <Button
           variant="contained"
-          color="primary"
-          onClick={handleGoogleSignIn}
+          onClick={handleGoogleLogin}
+          disabled={isLoading}
+          startIcon={isLoading ? <CircularProgress size={20} /> : <GoogleIcon />}
           fullWidth
           sx={{ mt: 2 }}
-          disabled={disabled}
         >
-          Login with Google
+          {isLoading ? 'Signing in...' : 'Login with Google'}
         </Button>
 
         {user && (

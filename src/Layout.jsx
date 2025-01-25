@@ -1,9 +1,14 @@
 // src/Layout.js
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box } from '@mui/material';
 import NavRail from './components/Navrail';
+import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 
-const Layout = ({ children }) => {
+const Layout = () => {
+  const location = useLocation();
+
   return (
     <Box sx={{ display: 'flex' }}>
       {/* Navigation Rail */}
@@ -28,7 +33,15 @@ const Layout = ({ children }) => {
           mx: 'auto',
           px: { xs: 2, sm: 15 }, // Reduced horizontal padding
         }}>
-          {children}
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Outlet />
+          </motion.div>
         </Box>
       </Box>
     </Box>

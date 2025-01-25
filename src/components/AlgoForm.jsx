@@ -10,6 +10,8 @@ import {
   Paper,
   Typography,
   Alert,
+  Fade,
+  CircularProgress,
 } from '@mui/material';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -35,6 +37,8 @@ const AlgoForm = () => {
   });
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDescription, setShowDescription] = useState(true);
   const auth = getAuth();
 
   // Handle input change for text fields
@@ -76,24 +80,44 @@ const AlgoForm = () => {
     }));
   };
 
+  // Handle sequence validation
+  const handleValidSequence = (input) => {
+    // Remove any non-ACTGU characters (case insensitive)
+    const cleaned = input.toUpperCase().replace(/[^ACGTU]/gi, '');
+    setFormData(prev => ({
+      ...prev,
+      sequence: cleaned
+    }));
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
+    setIsSubmitting(true);
+    setShowDescription(false);
+
+    const startTime = Date.now();
 
     if (!auth.currentUser) {
       setError('Please login to submit a job');
+      setIsSubmitting(false);
+      setShowDescription(true);
       return;
     }
 
     if (!formData.jobTitle) {
       setError('Please enter a job title');
+      setIsSubmitting(false);
+      setShowDescription(true);
       return;
     }
 
     if (!formData.sequence && !formData.file) {
       setError('Please enter a sequence or upload a file');
+      setIsSubmitting(false);
+      setShowDescription(true);
       return;
     }
 
@@ -155,6 +179,13 @@ const AlgoForm = () => {
     } catch (error) {
       console.error('Error submitting job:', error);
       setError('Error submitting job. Please try again.');
+    } finally {
+      const elapsed = Date.now() - startTime;
+      const remainingDelay = Math.max(1000 - elapsed, 0);
+      await new Promise(resolve => setTimeout(resolve, remainingDelay));
+      
+      setIsSubmitting(false);
+      setShowDescription(true);
     }
   };
 
@@ -193,11 +224,16 @@ const AlgoForm = () => {
           label="Sequence"
           name="sequence"
           value={formData.sequence}
-          onChange={handleChange}
+          onChange={(e) => handleValidSequence(e.target.value)}
           multiline
           rows={4}
           fullWidth
           sx={{ mb: 3 }}
+          inputProps={{ 
+            maxLength: 1000,
+            pattern: '[ACGTacgt]*', // HTML5 validation
+            title: 'Only A, C, G, T/U characters allowed' 
+          }}
         />
 
         {/* File Upload */}
@@ -344,80 +380,81 @@ const AlgoForm = () => {
         fullWidth
         size="large"
         sx={{ mb: 3 }}
+        disabled={isSubmitting}
       >
-        Submit Job
+        {isSubmitting ? (
+          <>
+            <CircularProgress size={24} sx={{ mr: 1 }} />
+            Submitting...
+          </>
+        ) : (
+          "Submit Job"
+        )}
       </Button>
 
-      {/* How To Use Section */}
-      <Paper
-          elevation={3}
-          sx={{
-            mt: 4,
-            p: 3,
-            backgroundColor: '#f3e5f5',
-            borderRadius: 2,
-            maxWidth: '100%'
-          }}
-        >        
-        <Typography variant="subtitle2" gutterBottom>
-          Supported File Types:
-        </Typography>
-        <Box component="div" sx={{ pl: 2 }}>
-          <Typography variant="body2" component="div">
-            <ul>
-              <li>Excel spreadsheet (.csv)</li>
-              <li>FASTA nucleic acid (.fna)</li>
-              <li>FASTA nucleotide of gene regions (.ffn)</li>
-              <li>FASTA amino acid (.faa)</li>
-            </ul>
+      {/* Description Section */}
+      <Fade in={showDescription} timeout={1000}>
+        <Paper sx={{ p: 3, mt: 3, backgroundColor: '#f3e5f5'  }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Supported File Types:
           </Typography>
-        </Box>
-        <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-          Predictor Types:
-        </Typography>
-        <Box component="div" sx={{ pl: 2 }}>
-          <Typography variant="body2" component="div">
-            <ul>
-              <li>Standard: estimates expression level only from a single sigma70 binding site with the lowest binding energy.</li>
-              <li>Standard + Spacer: accounts for energy penalties with different spacer configurations.</li>
-              <li>Standard + Spacer + Cumulative: accounts for all possible sigma70 binding sites with energy associated with different spacer configurations.</li>
-            </ul>
-          </Typography>
-        </Box>
-        <Typography variant="h6" gutterBottom>
-          How To Use
-        </Typography>
-        <Typography variant="body2" paragraph>
-          <strong>Step 1:</strong> Enter your sequence directly in the text field or upload a file in one of the supported formats.
-          </Typography>
-          <Typography variant="body2" paragraph>
-          <strong>Step 2:</strong> Choose your preferred prediction algorithm from the available options.
-          </Typography>
-          <Typography variant="body2" paragraph>
-          <strong>Step 3:</strong> Select your strand direction:
-          • Forward strand (input sequence from left to right)
-          • Reverse complement
-          • Both directions          
-          </Typography>
-          <Typography variant="body2" paragraph>
-          <strong>Important Note:</strong> The first upstream 35 base pairs in the sequence cannot be evaluated (due to the minimum 
-          binding site length of sigma70). Please include at least 35bp upstream of your sequence of interest. These can be 
-          a string of Gs to help with interpretation.
-          </Typography>
-
-          <div>
-            <Typography variant="body2" paragraph>
-              <strong>Output:</strong> Results will include:
+          <Box component="div" sx={{ pl: 2 }}>
+            <Typography variant="body2" component="div">
+              <ul>
+                <li>Excel spreadsheet (.csv)</li>
+                <li>FASTA nucleic acid (.fna)</li>
+                <li>FASTA nucleotide of gene regions (.ffn)</li>
+                <li>FASTA amino acid (.faa)</li>
+              </ul>
             </Typography>
-            <ul>
-              <li>Brick plot visualization</li>
-              <li>Predicted expression level (Pon)</li>
-            </ul>
-          </div>
+          </Box>
+          <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+            Predictor Types:
+          </Typography>
+          <Box component="div" sx={{ pl: 2 }}>
+            <Typography variant="body2" component="div">
+              <ul>
+                <li>Standard: estimates expression level only from a single sigma70 binding site with the lowest binding energy.</li>
+                <li>Standard + Spacer: accounts for energy penalties with different spacer configurations.</li>
+                <li>Standard + Spacer + Cumulative: accounts for all possible sigma70 binding sites with energy associated with different spacer configurations.</li>
+              </ul>
+            </Typography>
+          </Box>
+          <Typography variant="h6" gutterBottom>
+            How To Use
+          </Typography>
           <Typography variant="body2" paragraph>
-          <strong>Sequence Limit:</strong> Registered users can input up to 100 sequences per 6 months.
-        </Typography>
-      </Paper>
+            <strong>Step 1:</strong> Enter your sequence directly in the text field or upload a file in one of the supported formats.
+            </Typography>
+            <Typography variant="body2" paragraph>
+            <strong>Step 2:</strong> Choose your preferred prediction algorithm from the available options.
+            </Typography>
+            <Typography variant="body2" paragraph>
+            <strong>Step 3:</strong> Select your strand direction:
+            • Forward strand (input sequence from left to right)
+            • Reverse complement
+            • Both directions          
+            </Typography>
+            <Typography variant="body2" paragraph>
+            <strong>Important Note:</strong> The first upstream 35 base pairs in the sequence cannot be evaluated (due to the minimum 
+            binding site length of sigma70). Please include at least 35bp upstream of your sequence of interest. These can be 
+            a string of Gs to help with interpretation.
+            </Typography>
+
+            <div>
+              <Typography variant="body2" paragraph>
+                <strong>Output:</strong> Results will include:
+              </Typography>
+              <ul>
+                <li>Brick plot visualization</li>
+                <li>Predicted expression level (Pon)</li>
+              </ul>
+            </div>
+            <Typography variant="body2" paragraph>
+            <strong>Sequence Limit:</strong> Registered users can input up to 100 sequences per 6 months.
+          </Typography>
+        </Paper>
+      </Fade>
     </Box>
   );
 };

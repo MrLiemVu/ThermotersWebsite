@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import theme from './theme';
 import Layout from './Layout';
 import Home from './pages/Home';
-import JobHistory from './pages/JobHistory';
+import History from './pages/History';
 import AlgoForm from './components/AlgoForm';
 import AlgorithmsPage from './pages/Algorithms';
 
@@ -18,7 +18,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/algorithms" element={<AlgorithmsPage />} />
-            <Route path="/history" element={<JobHistory />} />
+            <Route path="/history" element={<History />} />
           </Routes>
         </Layout>
       </ThemeProvider>

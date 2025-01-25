@@ -23,7 +23,7 @@ const HistoryTable = () => {
       if (!auth.currentUser) return; // Don't fetch if not logged in
 
       try {
-        const userJobsRef = collection(db, "users", auth.currentUser.uid, "jobhistory");
+        const userJobsRef = collection(db, "users", auth.currentUser.uid, "jobs");
         const q = query(userJobsRef, orderBy("uploadedAt", "desc"));
         const querySnapshot = await getDocs(q);
         const jobData = querySnapshot.docs.map((doc) => ({
