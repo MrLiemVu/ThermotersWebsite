@@ -1,0 +1,20 @@
+.job-details-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.download-section {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.json-preview {
+  background-color: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 300px;
+  overflow: auto;
+} 

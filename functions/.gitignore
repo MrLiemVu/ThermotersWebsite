@@ -1,1 +1,11 @@
-*.local
+# Node.js
+node_modules/
+package-lock.json
+*.log
+
+# Environment files
+.env
+serviceAccountKey.json
+
+# Firebase emulators
+.firebase/

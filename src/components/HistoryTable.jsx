@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig'; // Import your Firebase config
 import { 
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
-  TablePagination, TableSortLabel, Paper, Box, Typography, Modal 
+  TablePagination, TableSortLabel, Paper, Box, Typography, Modal, IconButton, Collapse, Button 
 } from '@mui/material';
 import { getAuth } from 'firebase/auth';
+import { KeyboardArrowDown, KeyboardArrowUp, Download } from '@mui/icons-material';
+import '../styles/HistoryTable.css';  // Adjust path based on your structure
 
 const HistoryTable = () => {
   const [jobs, setJobs] = useState([]);
@@ -15,24 +17,41 @@ const HistoryTable = () => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [openModal, setOpenModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [expandedRow, setExpandedRow] = useState(null);
   const auth = getAuth();
 
   // Fetch data from Firestore
   useEffect(() => {
     const fetchJobs = async () => {
-      if (!auth.currentUser) return; // Don't fetch if not logged in
-
       try {
-        const userJobsRef = collection(db, "users", auth.currentUser.uid, "jobs");
-        const q = query(userJobsRef, orderBy("uploadedAt", "desc"));
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        // Generate document ID from email/uid
+        const sanitizedEmail = user.email
+          .replace(/@/g, '_at_')
+          .replace(/\./g, '_dot_')
+          .replace(/[^a-zA-Z0-9_-]/g, '');
+        const docId = `${sanitizedEmail}-${user.uid}`;
+
+        const userDocRef = doc(db, "users", docId);
+        const jobsRef = collection(userDocRef, "jobs");
+        const q = query(jobsRef, orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         const jobData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate() || new Date()
         }));
         setJobs(jobData);
       } catch (error) {
         console.error("Error fetching jobs:", error);
+        if (error.code === 'permission-denied') {
+          console.error('Firestore rules blocking access. Verify:');
+          console.error('1. User is authenticated');
+          console.error('2. Document userId matches auth uid');
+          console.error('3. Rules are deployed correctly');
+        }
       }
     };
 
@@ -65,12 +84,27 @@ const HistoryTable = () => {
     setOpenModal(true);
   };
 
+  const handleDownloadJson = (job) => {
+    const jsonString = JSON.stringify(job, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `job-${job.id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Box>
-      <TableContainer component={Paper}>
-        <Table aria-label="job table">
+      <TableContainer component={Paper} sx={{ mt: 4 }}>
+        <Table aria-label="job history table">
           <TableHead>
             <TableRow>
+              <TableCell />
               <TableCell sortDirection={orderByColumn === 'jobName' ? order : false}>
                 <TableSortLabel
                   active={orderByColumn === 'jobName'}
@@ -91,16 +125,99 @@ const HistoryTable = () => {
               </TableCell>
               <TableCell>Results</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {jobs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((job) => (
-              <TableRow key={job.id} onClick={() => handleRowClick(job)} style={{ cursor: 'pointer' }}>
-                <TableCell>{job.jobName}</TableCell>
-                <TableCell>{new Date(job.uploadedAt.seconds * 1000).toLocaleDateString()}</TableCell>
-                <TableCell>{job.results}</TableCell>
-                <TableCell>{job.status}</TableCell>
-              </TableRow>
+              <React.Fragment key={job.id}>
+                <TableRow 
+                  sx={{ '& > *': { borderBottom: 'unset' } }}
+                  onClick={() => setExpandedRow(expandedRow === job.id ? null : job.id)}
+                >
+                  <TableCell>
+                    <IconButton size="small">
+                      {expandedRow === job.id ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell component="th" scope="row">
+                    {job.jobName}
+                  </TableCell>
+                  <TableCell>{new Date(job.uploadedAt.seconds * 1000).toLocaleDateString()}</TableCell>
+                  <TableCell>{job.results}</TableCell>
+                  <TableCell>{job.status}</TableCell>
+                  <TableCell align="right">
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<Download />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadJson(job);
+                      }}
+                    >
+                      JSON
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                
+                <TableRow>
+                  <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+                    <Collapse in={expandedRow === job.id} timeout="auto" unmountOnExit>
+                      <Box sx={{ margin: 2 }}>
+                        <Typography variant="h6" gutterBottom>
+                          Job Details
+                        </Typography>
+                        
+                        <div style={{ display: 'flex', gap: '2rem' }}>
+                          {/* Job Parameters */}
+                          <div style={{ flex: 1 }}>
+                            <Typography variant="subtitle1">Parameters:</Typography>
+                            <pre style={{ 
+                              backgroundColor: '#f5f5f5',
+                              padding: '1rem',
+                              borderRadius: '4px',
+                              maxHeight: '300px',
+                              overflow: 'auto'
+                            }}>
+                              {JSON.stringify({
+                                sequence: job.sequence,
+                                predictors: job.predictors,
+                                // Add other parameters here
+                              }, null, 2)}
+                            </pre>
+                          </div>
+
+                          {/* Visualization */}
+                          {job.result_image && (
+                            <div style={{ flex: 1 }}>
+                              <Typography variant="subtitle1" gutterBottom>
+                                Visualization
+                              </Typography>
+                              <img
+                                src={job.result_image}
+                                alt="Job result"
+                                style={{
+                                  maxWidth: '100%',
+                                  height: 'auto',
+                                  borderRadius: '8px'
+                                }}
+                              />
+                              <Button
+                                variant="contained"
+                                sx={{ mt: 1 }}
+                                href={job.result_image}
+                                download={`job-${job.id}.png`}
+                              >
+                                Download Image
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </React.Fragment>
             ))}
           </TableBody>
         </Table>

@@ -16,6 +16,8 @@ import {
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '../../firebaseConfig';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebaseConfig';
 
 const AlgoForm = () => {
   const [formData, setFormData] = useState({
@@ -39,6 +41,11 @@ const AlgoForm = () => {
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDescription, setShowDescription] = useState(true);
+  const [results, setResults] = useState({
+    image: null,
+    analysis: null,
+    loading: false
+  });
   const auth = getAuth();
 
   // Handle input change for text fields
@@ -122,41 +129,33 @@ const AlgoForm = () => {
     }
 
     try {
-      // Prepare the job data
-      const jobData = {
-        userId: auth.currentUser.uid,
-        jobTitle: formData.jobTitle,
-        sequence: formData.sequence,
-        fileName: formData.file?.name || null,
-        fileContent: null, // Will be handled by Cloud Function
-        extended: formData.extended,
-        reverseComplement: formData.reverseComplement,
-        maxValue: formData.maxValue,
-        minValue: formData.minValue,
-        isPrefix: formData.isPrefix,
-        isSuffix: formData.isSuffix,
-        predictors: formData.predictors,
-        pointsToOne: formData.pointsToOne,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-      };
-
-      // OPTION 1: Save to user-specific collection
-      // Path: /users/{userId}/jobs/{jobId}
-      const userJobsRef = collection(db, "users", auth.currentUser.uid, "jobs");
-      const docRef = await addDoc(userJobsRef, jobData);
-
-      // OPTION 2: Save to general jobs collection with user ID field
-      // Path: /jobs/{jobId}
-      // const jobsRef = collection(db, "jobs");
-      // const docRef = await addDoc(jobsRef, jobData);
-
-      // If there's a file, handle it separately
-      if (formData.file) {
-        // TODO: Upload file to Firebase Storage
-        // This could be handled here or in the Cloud Function
+      setResults(prev => ({...prev, loading: true}));
+      
+      const response = await fetch('https://us-central1-thermoterswebsite.cloudfunctions.net/submit_job', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`,
+          'X-User-ID': auth.currentUser.uid
+        },
+        body: JSON.stringify({
+          sequence: formData.sequence,
+          predictors: formData.predictors,
+          jobTitle: formData.jobTitle
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.image && data.analysis) {
+        setResults({
+          image: data.image,
+          analysis: data.analysis,
+          loading: false
+        });
       }
-
+      
+      console.log('Job submitted:', data.jobId);
       setSuccess(true);
       // Reset form
       setFormData({
@@ -177,8 +176,9 @@ const AlgoForm = () => {
         pointsToOne: false,
       });
     } catch (error) {
-      console.error('Error submitting job:', error);
+      console.error('Job submission error:', error);
       setError('Error submitting job. Please try again.');
+      setResults(prev => ({...prev, loading: false}));
     } finally {
       const elapsed = Date.now() - startTime;
       const remainingDelay = Math.max(1000 - elapsed, 0);
@@ -380,13 +380,15 @@ const AlgoForm = () => {
         fullWidth
         size="large"
         sx={{ mb: 3 }}
-        disabled={isSubmitting}
+        disabled={isSubmitting || results.loading}
       >
-        {isSubmitting ? (
+        {results.loading ? (
           <>
             <CircularProgress size={24} sx={{ mr: 1 }} />
-            Submitting...
+            Processing...
           </>
+        ) : isSubmitting ? (
+          "Submitting..."
         ) : (
           "Submit Job"
         )}
@@ -455,6 +457,42 @@ const AlgoForm = () => {
           </Typography>
         </Paper>
       </Fade>
+
+      {results.image && (
+        <Paper sx={{ p: 3, mt: 3, backgroundColor: '#fff' }}>
+          <Typography variant="h6" gutterBottom>
+            Analysis Results
+          </Typography>
+          
+          {results.loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              <img 
+                src={results.image} 
+                alt="Gene expression analysis" 
+                style={{ 
+                  maxWidth: '100%', 
+                  height: 'auto',
+                  borderRadius: '8px',
+                  marginBottom: '16px'
+                }} 
+              />
+              
+              <Typography variant="body1" sx={{ 
+                whiteSpace: 'pre-wrap',
+                backgroundColor: '#f5f5f5',
+                p: 2,
+                borderRadius: '4px'
+              }}>
+                {results.analysis}
+              </Typography>
+            </>
+          )}
+        </Paper>
+      )}
     </Box>
   );
 };
