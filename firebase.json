@@ -18,8 +18,7 @@
     "headers": [
       {
         "source": "**",
-        "headers": [
-        ]
+        "headers": []
       }
     ]
   },
@@ -30,5 +29,23 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "runtime": "python312",
+      "region": "eu-west2",
+      "ignore": [
+        "venv",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "codebase": "default",
+      "timeout": "540s",
+      "availableMemory": "2Gi",
+      "maxInstances": 3
+    }
+  ]
 }

@@ -188,24 +188,20 @@ const HistoryTable = () => {
                           </div>
 
                           {/* Visualization */}
-                          {job.result_image && (
+                          {job.results.image && (
                             <div style={{ flex: 1 }}>
                               <Typography variant="subtitle1" gutterBottom>
                                 Visualization
                               </Typography>
-                              <img
-                                src={job.result_image}
-                                alt="Job result"
-                                style={{
-                                  maxWidth: '100%',
-                                  height: 'auto',
-                                  borderRadius: '8px'
-                                }}
+                              <img 
+                                src={`data:image/png;base64,${job.results.image}`} 
+                                alt="Brickplot visualization"
+                                style={{ maxWidth: '100%', height: 'auto' }}
                               />
                               <Button
                                 variant="contained"
                                 sx={{ mt: 1 }}
-                                href={job.result_image}
+                                href={job.results.image}
                                 download={`job-${job.id}.png`}
                               >
                                 Download Image

@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 *.cache
 serviceAccountKey.json
+functions/venv/
+__pycache__/
+.env
