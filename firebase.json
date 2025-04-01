@@ -3,7 +3,7 @@
     "source": "dataconnect"
   },
   "hosting": {
-    "public": "build",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -13,12 +13,6 @@
       {
         "source": "**",
         "destination": "/index.html"
-      }
-    ],
-    "headers": [
-      {
-        "source": "**",
-        "headers": []
       }
     ]
   },
@@ -30,22 +24,27 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
-  "functions": [
-    {
-      "source": "functions",
-      "runtime": "python312",
-      "region": "eu-west2",
-      "ignore": [
-        "venv",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ],
-      "codebase": "default",
-      "timeout": "540s",
-      "availableMemory": "2Gi",
-      "maxInstances": 3
-    }
-  ]
+  "functions": {
+    "source": "functions",
+    "runtime": "python312",
+    "timeout": "540s",
+    "availableMemory": "2Gi",
+    "port": 8080,
+    "maxInstances": 3,
+    "labels": {
+      "deployment-tool": "firebase-cli"
+    },
+    "auth": {
+      "blockingFunctions": {
+        "beforeUserCreated": "create_user_document"
+      }
+    },
+    "codebase": "default",
+    "ignore": [
+      "venv",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log"
+    ]
+  }
 }

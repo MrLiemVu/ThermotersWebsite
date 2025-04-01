@@ -1,5 +1,5 @@
-firebase-admin==11.0.1
-firebase-functions==1.0.0
+firebase-admin==6.6.0
+firebase-functions==0.4.2
 flask==3.0.3
 python-dotenv>=1.0.1
 biopython==1.83
@@ -8,8 +8,9 @@ matplotlib==3.8.3
 pandas==2.2.3
 scipy==1.15.1
 scikit-learn==1.6.1
-google-cloud-firestore==2.13.0
+google-cloud-firestore==2.20.0
 seaborn==0.13.2
 google-cloud-storage>=2.10.0
 functions-framework==3.*
 gunicorn==21.2.0
+gevent==24.2.1

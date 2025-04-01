@@ -10,8 +10,8 @@ from io import BytesIO
 import re
 
 # Add parent directory to path to allow utils import
-from utils.general_functions import *
-from utils.model_functions import *
+from general_functions import *
+from model_functions import *
 
 BASES = "acgt"
 LETTER_TO_INDEX = dict(zip(BASES, range(4)))

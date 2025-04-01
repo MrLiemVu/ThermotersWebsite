@@ -1,5 +1,5 @@
 // src/components/AlgoForm.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TextField,
   Button,
@@ -13,7 +13,7 @@ import {
   Fade,
   CircularProgress,
 } from '@mui/material';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, onSnapshot } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '../../firebaseConfig';
 import { httpsCallable } from 'firebase/functions';
@@ -28,6 +28,7 @@ const AlgoForm = () => {
     reverseComplement: false,
     maxValue: -2.5,
     minValue: -6,
+    threshold: -2.5,
     isPrefix: false,
     isSuffix: false,
     predictors: {
@@ -46,7 +47,19 @@ const AlgoForm = () => {
     analysis: null,
     loading: false
   });
+  const [usageCount, setUsageCount] = useState(0);
   const auth = getAuth();
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      const userRef = doc(db, "users", auth.currentUser.uid);
+      onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          setUsageCount(doc.data().monthlyUsage?.count || 0);
+        }
+      });
+    }
+  }, [auth.currentUser]);
 
   // Handle input change for text fields
   const handleChange = (e) => {
@@ -67,12 +80,20 @@ const AlgoForm = () => {
   };
 
   // Handle file upload
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
-    setFormData(prev => ({
-      ...prev,
-      file: file
-    }));
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFormData(prev => ({
+          ...prev,
+          file: file,
+          fileContent: e.target.result,  // Store file content
+          fileName: file.name
+        }));
+      };
+      reader.readAsText(file);
+    }
   };
 
   // Handle predictor change
@@ -129,23 +150,36 @@ const AlgoForm = () => {
     }
 
     try {
-      setResults(prev => ({...prev, loading: true}));
+      // First hit the ping endpoint
+      const pingResponse = await fetch(
+        `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/ping`
+      );
       
-      const response = await fetch('https://us-central1-thermoterswebsite.cloudfunctions.net/submit_job', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser.getIdToken()}`,
-          'X-User-ID': auth.currentUser.uid
-        },
-        body: JSON.stringify({
-          sequence: formData.sequence,
-          predictors: formData.predictors,
-          jobTitle: formData.jobTitle
-        })
+      if (!pingResponse.ok) {
+        throw new Error('Failed to connect to server');
+      }
+      
+      const pingData = await pingResponse.json();
+      console.log('Ping successful:', pingData);
+
+      // Then submit the job as normal
+      const submitJob = httpsCallable(functions, 'submit_job');
+      const result = await submitJob({
+        jobTitle: formData.jobTitle,
+        sequence: formData.sequence,
+        fileContent: formData.fileContent,
+        fileName: formData.fileName,
+        predictors: formData.predictors,
+        model: 'default',
+        isPlusOne: formData.pointsToOne,
+        isRc: formData.reverseComplement,
+        maxValue: formData.maxValue,
+        minValue: formData.minValue,
+        threshold: -2.5,
+        isPrefixSuffix: formData.isPrefix
       });
       
-      const data = await response.json();
+      const data = await result.data;
       
       if (data.image && data.analysis) {
         setResults({
@@ -175,10 +209,13 @@ const AlgoForm = () => {
         },
         pointsToOne: false,
       });
+
+      // When saving jobs
+      const docRef = db.collection('users').doc(auth.currentUser.uid)
+                    .collection('jobs').doc(data.jobId);  // Must match Firestore path
     } catch (error) {
-      console.error('Job submission error:', error);
-      setError('Error submitting job. Please try again.');
-      setResults(prev => ({...prev, loading: false}));
+      console.error('Submission error:', error);
+      setError(error.message);
     } finally {
       const elapsed = Date.now() - startTime;
       const remainingDelay = Math.max(1000 - elapsed, 0);
@@ -191,18 +228,6 @@ const AlgoForm = () => {
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%', maxWidth: 800, mx: 'auto' }}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Job submitted successfully!
-        </Alert>
-      )}
-
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Submit New Job
@@ -253,7 +278,7 @@ const AlgoForm = () => {
             <input
               type="file"
               hidden
-              accept=".csv,.fna,.ffn,.faa"
+              accept=".csv,.fna,.ffn,.faa,.fasta"
               onChange={handleFileUpload}
             />
           </Button>
@@ -369,6 +394,15 @@ const AlgoForm = () => {
                 inputProps={{ step: 0.1 }}
                 sx={{ width: '150px' }}
               />
+              <TextField
+                label="Threshold"
+                type="number"
+                name="threshold"
+                value={formData.threshold}
+                onChange={handleChange}
+                inputProps={{ step: 0.1 }}
+                sx={{ width: '150px' }}
+              />
             </Box>
           </Box>
       </Paper>
@@ -394,6 +428,25 @@ const AlgoForm = () => {
         )}
       </Button>
 
+      {/* Error/Success Messages */}
+      <Box sx={{ mb: 3 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            Job submitted successfully!
+          </Alert>
+        )}
+        {auth.currentUser && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Sequences used this month: {usageCount}/100
+          </Alert>
+        )}
+      </Box>
+
       {/* Description Section */}
       <Fade in={showDescription} timeout={1000}>
         <Paper sx={{ p: 3, mt: 3, backgroundColor: '#f3e5f5'  }}>
@@ -407,6 +460,7 @@ const AlgoForm = () => {
                 <li>FASTA nucleic acid (.fna)</li>
                 <li>FASTA nucleotide of gene regions (.ffn)</li>
                 <li>FASTA amino acid (.faa)</li>
+                <li>FASTA (.fasta)</li>
               </ul>
             </Typography>
           </Box>
@@ -416,9 +470,10 @@ const AlgoForm = () => {
           <Box component="div" sx={{ pl: 2 }}>
             <Typography variant="body2" component="div">
               <ul>
-                <li>Standard: estimates expression level only from a single sigma70 binding site with the lowest binding energy.</li>
-                <li>Standard + Spacer: accounts for energy penalties with different spacer configurations.</li>
-                <li>Standard + Spacer + Cumulative: accounts for all possible sigma70 binding sites with energy associated with different spacer configurations.</li>
+                <li><strong>Standard</strong>: Predicts expression based on the strongest σ70-RNAP binding site (consensus -10/-35 elements) using minimal thermodynamic binding energy.</li>
+                <li><strong>Standard + Spacer</strong>: Adds penalties for non-canonical spacer lengths (≠17bp between -10/-35 elements) to the base model.</li>
+                <li><strong>Standard + Spacer + Cumulative</strong>: Considers all potential binding configurations (not just strongest) with spacer penalties, integrating their combined thermodynamic effects.</li>
+                <li><strong>Extended</strong>: Full biophysical model incorporating six structural features - multiple binding configurations, spacer effects, dinucleotide interactions, flanking sequences, DNA flexibility, and competitive non-productive binding.</li>
               </ul>
             </Typography>
           </Box>
@@ -448,12 +503,12 @@ const AlgoForm = () => {
                 <strong>Output:</strong> Results will include:
               </Typography>
               <ul>
-                <li>Brick plot visualization</li>
-                <li>Predicted expression level (Pon)</li>
+                <li>Brick plot visualization (.png)</li>
+                <li>Predicted expression level ( P<sub>on</sub>) and confidence interval (95%) (.txt)</li>
               </ul>
             </div>
             <Typography variant="body2" paragraph>
-            <strong>Sequence Limit:</strong> Registered users can input up to 100 sequences per 6 months.
+            <strong>Sequence Limit:</strong> Registered users can input up to 100 sequences per month.
           </Typography>
         </Paper>
       </Fade>

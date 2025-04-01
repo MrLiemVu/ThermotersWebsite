@@ -98,6 +98,15 @@ const HistoryTable = () => {
     URL.revokeObjectURL(url);
   };
 
+  // When viewing historical job
+  const regeneratePlot = async (jobParams) => {
+    const response = await fetch('/submit_job', {
+      method: 'POST',
+      body: JSON.stringify(jobParams)
+    });
+    return await response.json();
+  };
+
   return (
     <Box>
       <TableContainer component={Paper} sx={{ mt: 4 }}>

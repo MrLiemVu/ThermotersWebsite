@@ -27,7 +27,10 @@ const LoginModal = ({ open, onClose }) => {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Sign-in error:", error);
     } finally {
       setIsLoading(false);
       onClose();
