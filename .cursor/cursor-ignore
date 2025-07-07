@@ -1,0 +1,253 @@
+# Cursor AI Context Ignore File
+# This file tells Cursor which files to exclude from AI context to improve performance
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+
+# Testing and coverage
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+.cache
+htmlcov/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Linting and formatting cache
+.ruff_cache/
+.mypy_cache/
+.black_cache/
+.isort_cache/
+
+# ML and Data files (often large)
+data/
+datasets/
+models/
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.pb
+*.tflite
+*.bin
+*.safetensors
+
+# Logs and artifacts
+logs/
+*.log
+artifacts/
+mlruns/
+wandb/
+.tensorboard/
+checkpoints/
+runs/
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.mp3
+*.wav
+*.flac
+*.aac
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.svg
+*.ico
+*.webp
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Documentation build files
+docs/_build/
+docs/_static/
+docs/_templates/
+site/
+
+# Package manager files
+node_modules/
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Docker files (can be large)
+Dockerfile
+docker-compose.yml
+docker-compose.yaml
+.dockerignore
+
+# CI/CD files (already covered in documentation)
+.github/workflows/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+azure-pipelines.yml
+Jenkinsfile
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tbz2
+*.tar.xz
+*.txz
+*.7z
+*.rar
+
+# Large text files that might not be code
+*.csv
+*.tsv
+*.json
+*.jsonl
+*.xml
+*.parquet
+
+# Temporary files
+*.tmp
+*.temp
+*.lock
+*.pid
+
+# Configuration files that might be auto-generated
+*.cfg
+*.conf
+*.ini
+settings.json
+local_settings.py
+
+# Dependency lock files
+poetry.lock
+Pipfile.lock
+requirements.txt
+requirements-dev.txt
+environment.yml
+conda-lock.yml
+
+# Jupyter Lab extensions
+*.tgz
+share/
+
+# PyCharm
+.idea/
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Large configuration files
+*.yaml
+*.yml
+
+# Exclude large README files if they exist
+README.rst
+CHANGELOG.md
+HISTORY.md
+AUTHORS.md
+CONTRIBUTORS.md
+LICENSE
+MANIFEST.in
+
+# Exclude compiled documentation
+*.pdf
+*.epub
+*.mobi 

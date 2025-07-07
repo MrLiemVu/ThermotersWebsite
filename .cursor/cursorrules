@@ -1,0 +1,194 @@
+# Cursor Rules for Thermoters Gene Expression Prediction Platform
+
+## Core Development Principles
+
+- Use modern React 18+ features and hooks throughout the codebase
+- Implement comprehensive TypeScript for all new components and functions
+- Write clear, descriptive comments for complex logic
+- Follow the established project structure and naming conventions
+- Prioritize code readability and maintainability over clever optimizations
+- Always include proper error handling with user-friendly messages
+- Use meaningful variable names that clearly describe functionality
+- Keep going until the job is completely solved before ending your turn. If you're unsure about code or files, open them- do not hallucinate. Plan thoroughly before every tool call and reflect on the outcome after.
+
+## React Best Practices
+
+- Use functional components with hooks instead of class components
+- Implement proper prop validation with PropTypes or TypeScript
+- Use React.memo() for performance optimization when appropriate
+- Leverage custom hooks for reusable logic
+- Use proper state management patterns (useState, useReducer, Context)
+- Implement proper cleanup in useEffect hooks
+- Use React Router for navigation and routing
+
+## JavaScript/ES6+ Best Practices
+
+- Use modern ES6+ syntax: arrow functions, destructuring, template literals
+- Use const and let instead of var
+- Implement proper async/await patterns for API calls
+- Use optional chaining and nullish coalescing operators
+- Leverage array methods like map, filter, reduce appropriately
+- Use meaningful variable names that clearly describe their purpose
+
+## Firebase Integration Guidelines
+
+### Authentication
+- Use Firebase Auth for user authentication
+- Implement proper error handling for auth operations
+- Use React Firebase Hooks for real-time auth state
+- Implement proper loading states during auth operations
+
+### Firestore Database
+- Use proper data validation before writing to Firestore
+- Implement real-time listeners with proper cleanup
+- Use batch operations for multiple writes
+- Implement proper error handling for database operations
+
+### Cloud Functions
+- Use proper input validation in Cloud Functions
+- Implement proper error handling and logging
+- Use environment variables for configuration
+- Implement proper security rules
+
+## Code Quality Standards
+
+### Testing
+- Write comprehensive tests with Jest and React Testing Library
+- Achieve minimum 80% code coverage for new code
+- Test both success and failure cases
+- Mock external dependencies in unit tests
+- Use fixtures for common test setup
+- Test user interactions and component behavior
+
+### Documentation
+- Include usage examples in comments for complex functions
+- Document component props and their expected types
+- Explain complex algorithms and business logic
+- Keep README files up to date with current functionality
+- Document API endpoints and their expected responses
+
+### Error Handling
+- Use specific error types rather than generic Error
+- Provide informative error messages for users
+- Log errors with appropriate log levels
+- Handle network errors gracefully
+- Validate user inputs before processing
+
+## Security and Performance
+
+### Security
+- Never commit secrets, API keys, or credentials
+- Use environment variables for sensitive configuration
+- Validate all user inputs before processing
+- Implement proper authentication for protected routes
+- Use secure defaults for all configuration options
+
+### Performance
+- Profile code performance for critical paths
+- Use React.memo() for expensive components
+- Implement proper loading states
+- Optimize bundle size with code splitting
+- Use proper image optimization techniques
+
+## Code Organization
+
+### File Structure
+- Keep related functionality in the same module
+- Use clear, descriptive file and directory names
+- Separate concerns between components, pages, and utilities
+- Group utility functions in appropriate utility modules
+- Maintain a clean separation between UI and business logic
+
+### Import Organization
+- Use absolute imports for all project modules
+- Group imports logically: React, third-party, local
+- Import only what you need to reduce bundle size
+- Use named imports when possible
+
+## Material-UI Integration
+
+### Component Usage
+- Use Material-UI components consistently
+- Follow Material Design principles
+- Implement proper theming with ThemeProvider
+- Use responsive design patterns
+- Implement proper accessibility features
+
+### Styling
+- Use sx prop for component-specific styling
+- Implement consistent spacing and typography
+- Use theme colors and breakpoints
+- Implement proper dark/light mode support
+
+## Git and Version Control
+
+### Commit Guidelines
+- Write clear, descriptive commit messages
+- Make atomic commits that represent single logical changes
+- Use conventional commit format when possible
+- Reference issue numbers in commit messages when relevant
+
+### Branch Management
+- Use feature branches for all new development
+- Keep branches focused on single features or fixes
+- Rebase or merge appropriately to maintain clean history
+- Delete merged branches to reduce clutter
+
+## Code Review Standards
+
+### Review Checklist
+- Verify all new code has appropriate tests
+- Check that documentation is complete and accurate
+- Ensure error handling is comprehensive
+- Validate that components handle edge cases properly
+- Confirm that performance considerations have been addressed
+
+### Quality Gates
+- All tests must pass before merging
+- Code coverage must meet minimum thresholds
+- Linting must pass with zero errors
+- Documentation must be updated for API changes
+
+## Development Environment
+
+### Local Setup
+- Use Node.js 18+ for development
+- Keep package.json files up to date
+- Run pre-commit hooks before committing
+- Test code locally before pushing to remote
+
+### IDE Configuration
+- Use ESLint for linting and formatting
+- Enable TypeScript checking
+- Configure auto-formatting on save
+- Set up proper Node.js interpreter paths
+
+## Debugging and Troubleshooting
+
+### Logging
+- Use appropriate log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Include relevant context in log messages
+- Log user interactions and API calls
+- Use structured logging for easier parsing and analysis
+
+### Debugging React Components
+- Use React DevTools for component debugging
+- Add console.logs for state changes
+- Use React.memo() to identify unnecessary re-renders
+- Implement gradual debugging by testing components in isolation
+
+## Deployment Considerations
+
+### Build Optimization
+- Optimize bundle size with code splitting
+- Implement proper caching strategies
+- Use CDN for static assets
+- Implement proper error boundaries
+
+### Monitoring
+- Implement error tracking (Sentry, etc.)
+- Monitor performance metrics
+- Track user interactions and errors
+- Set up alerts for critical failures
+
+These rules should guide all development work on the Thermoters gene expression prediction platform to ensure consistency, quality, and maintainability across the codebase. 
