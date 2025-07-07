@@ -14,3 +14,4 @@ google-cloud-storage>=2.10.0
 functions-framework==3.*
 gunicorn==21.2.0
 gevent==24.2.1
+Pillow>=10.0.0
