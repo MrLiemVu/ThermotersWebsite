@@ -1,15 +1,17 @@
 """Minimal firebase_admin stubs for local unit tests and CLI helpers."""
 from __future__ import annotations
 
+from datetime import datetime
 from types import SimpleNamespace
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 _firestore_store: Dict[str, Dict[str, Any]] = {}
 _app: Optional[object] = None
 
 
 class _FakeSnapshot:
-    def __init__(self, data: Optional[Dict[str, Any]]) -> None:
+    def __init__(self, doc_id: str, data: Optional[Dict[str, Any]]) -> None:
+        self.id = doc_id
         self._data = data
 
     @property
@@ -22,7 +24,6 @@ class _FakeSnapshot:
         data = dict(self._data)
         data.pop("__subcollections__", None)
         return data
-
 
 class _FakeDocument:
     def __init__(self, store: Dict[str, Any], doc_id: str) -> None:
@@ -39,7 +40,7 @@ class _FakeDocument:
         return doc
 
     def get(self) -> _FakeSnapshot:
-        return _FakeSnapshot(self._store.get(self._doc_id))
+        return _FakeSnapshot(self._doc_id, self._store.get(self._doc_id))
 
     def set(self, data: Dict[str, Any], merge: bool = False) -> None:
         doc = self._ensure_doc()
@@ -72,6 +73,30 @@ class _FakeCollection:
     def document(self, doc_id: str) -> _FakeDocument:
         return _FakeDocument(self._store, doc_id)
 
+    def stream(self) -> Iterable[_FakeSnapshot]:
+        return [_FakeSnapshot(doc_id, data) for doc_id, data in self._store.items()]
+
+    def order_by(self, field: str, direction: Any = None) -> "_FakeCollectionView":
+        reverse = False
+        if direction is not None:
+            reverse = str(direction).upper().endswith('DESCENDING')
+        return _FakeCollectionView(self._store, field, reverse)
+
+class _FakeCollectionView:
+    def __init__(self, store: Dict[str, Any], field: str, reverse: bool) -> None:
+        self._store = store
+        self._field = field
+        self._reverse = reverse
+
+    def stream(self) -> Iterable[_FakeSnapshot]:
+        def sort_key(item: tuple[str, Dict[str, Any]]):
+            value = item[1].get(self._field)
+            if isinstance(value, datetime):
+                return value
+            return (value is None, value)
+
+        ordered = sorted(self._store.items(), key=sort_key, reverse=self._reverse)
+        return [_FakeSnapshot(doc_id, data) for doc_id, data in ordered]
 
 class _FakeBatch:
     def __init__(self, client: "_FakeFirestore") -> None:

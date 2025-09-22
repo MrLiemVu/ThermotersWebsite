@@ -31,7 +31,12 @@ MODEL_PATH = (
     / "fitted_on_Pr"
     / "model_[3]_stm+flex+cumul+rbs.dmp"
 )
-TEST_SEQUENCE = "ATCGATCGATCGATCGATCG"
+TEST_DATA_DIR = Path(__file__).resolve().parent
+TXT_SEQUENCE_PATH = TEST_DATA_DIR / "test_sequence.txt"
+FASTA_SEQUENCE_PATH = TEST_DATA_DIR / "test_sequence.fasta"
+
+TXT_SEQUENCE = TXT_SEQUENCE_PATH.read_text().strip()
+FASTA_SEQUENCE = ''.join(line.strip() for line in FASTA_SEQUENCE_PATH.read_text().splitlines() if not line.startswith('>'))
 
 pytestmark = [
     pytest.mark.filterwarnings("ignore::sklearn.exceptions.InconsistentVersionWarning"),
@@ -60,10 +65,10 @@ def brickplotter(tmp_path_factory: pytest.TempPathFactory) -> BrickPlotter:
 
 
 def test_brickplot_produces_image_and_matrix(brickplotter: BrickPlotter) -> None:
-    result = brickplotter.get_brickplot(TEST_SEQUENCE)
+    result = brickplotter.get_brickplot(TXT_SEQUENCE)
 
-    assert result["sequence"] == TEST_SEQUENCE
-    assert result["sequence_length"] == len(TEST_SEQUENCE)
+    assert result["sequence"] == TXT_SEQUENCE
+    assert result["sequence_length"] == len(TXT_SEQUENCE)
 
     image = _decode_image(result["image_base64"])
     assert image.size > 0
@@ -73,8 +78,15 @@ def test_brickplot_produces_image_and_matrix(brickplotter: BrickPlotter) -> None
     assert matrix.shape[0] > 0 and matrix.shape[1] > 0
 
 
+
+
+def test_brickplot_accepts_fasta_file(brickplotter: BrickPlotter) -> None:
+    result = brickplotter.get_brickplot(str(FASTA_SEQUENCE_PATH))
+    assert result["sequence"] == FASTA_SEQUENCE
+    assert result["sequence_length"] == len(FASTA_SEQUENCE)
+
 def test_brickplot_statistics_present(brickplotter: BrickPlotter) -> None:
-    result = brickplotter.get_brickplot(TEST_SEQUENCE)
+    result = brickplotter.get_brickplot(TXT_SEQUENCE)
     stats = result.get("statistics", {})
     expected_keys = {"min_energy", "max_energy", "mean_energy", "best_position"}
     assert expected_keys.issubset(stats.keys())
@@ -96,7 +108,7 @@ def run_demo() -> None:
         is_plus_one=True,
         is_rc=False,
     )
-    result = plotter.get_brickplot(TEST_SEQUENCE)
+    result = plotter.get_brickplot(TXT_SEQUENCE)
     image = _decode_image(result["image_base64"])
 
     _enable_interactive_backend()

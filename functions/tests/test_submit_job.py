@@ -17,9 +17,14 @@ except ModuleNotFoundError:  # pragma: no cover - fallback when tests run from r
     sys.path.append(str(Path(__file__).resolve().parents[2]))
     from functions import main
 
+TEST_DATA_DIR = Path(__file__).resolve().parent
+TEXT_SEQUENCE = (TEST_DATA_DIR / 'test_sequence.txt').read_text().strip()
+FASTA_SEQUENCE_PATH = TEST_DATA_DIR / 'test_sequence.fasta'
+FASTA_SEQUENCE = ''.join(line.strip() for line in FASTA_SEQUENCE_PATH.read_text().splitlines() if not line.startswith('>'))
 
 class FakeSnapshot:
-    def __init__(self, data: Dict[str, Any] | None) -> None:
+    def __init__(self, doc_id: str, data: Dict[str, Any] | None) -> None:
+        self.id = doc_id
         self._data = data
 
     @property
@@ -33,14 +38,20 @@ class FakeSnapshot:
         data.pop("__subcollections__", None)
         return data
 
-
 def _deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+
     for key, value in source.items():
+
         if key == "__subcollections__":
+
             continue
+
         if isinstance(value, dict) and isinstance(target.get(key), dict):
+
             _deep_merge(target[key], value)
+
         else:
+
             target[key] = value
 
 
@@ -60,7 +71,7 @@ class FakeDocument:
 
     def get(self) -> FakeSnapshot:
         doc = self._store.get(self._doc_id)
-        return FakeSnapshot(doc)
+        return FakeSnapshot(self._doc_id, doc)
 
     def set(self, data: Dict[str, Any], merge: bool = False) -> None:
         doc = self._ensure_doc()
@@ -94,6 +105,28 @@ class FakeCollection:
     def document(self, doc_id: str) -> FakeDocument:
         return FakeDocument(self._store, doc_id)
 
+    def stream(self) -> list[FakeSnapshot]:
+        return [FakeSnapshot(doc_id, data) for doc_id, data in self._store.items()]
+
+    def order_by(self, field: str, direction: str | None = None) -> "FakeCollectionView":
+        reverse = False
+        if direction is not None:
+            reverse = str(direction).upper().endswith('DESCENDING')
+        return FakeCollectionView(self._store, field, reverse)
+
+class FakeCollectionView:
+    def __init__(self, store: Dict[str, Any], field: str, reverse: bool) -> None:
+        self._store = store
+        self._field = field
+        self._reverse = reverse
+
+    def stream(self) -> list[FakeSnapshot]:
+        def sort_key(item: tuple[str, Dict[str, Any]]):
+            value = item[1].get(self._field)
+            return (value is None, value)
+
+        ordered = sorted(self._store.items(), key=sort_key, reverse=self._reverse)
+        return [FakeSnapshot(doc_id, data) for doc_id, data in ordered]
 
 class FakeBatch:
     def __init__(self) -> None:
@@ -122,7 +155,7 @@ class FakeFirestore:
 
     def get_document_data(self, collection: str, doc_id: str) -> Dict[str, Any]:
         docs = self._collections.get(collection, {})
-        snapshot = FakeSnapshot(docs.get(doc_id))
+        snapshot = FakeSnapshot(doc_id, docs.get(doc_id))
         return snapshot.to_dict()
 
     def get_subcollection_docs(self, collection: str, doc_id: str, subcollection: str) -> Dict[str, Any]:
@@ -138,10 +171,11 @@ class FakeFirestore:
 
 
 class FakeRequest:
-    def __init__(self, payload: Dict[str, Any], headers: Dict[str, str] | None = None) -> None:
+    def __init__(self, payload: Dict[str, Any], headers: Dict[str, str] | None = None, args: Dict[str, Any] | None = None) -> None:
         self._payload = payload
         self.headers = headers or {}
         self.auth: Any = None
+        self.args = args or {}
 
     def get_json(self) -> Dict[str, Any]:
         return self._payload
@@ -206,6 +240,27 @@ def brickplot_stub(monkeypatch: pytest.MonkeyPatch) -> Dict[str, Any]:
     return payload
 
 
+def test_submit_job_uploads_fasta(fake_firestore: FakeFirestore, model_path_stub: Path, brickplot_stub: Dict[str, Any]) -> None:
+    request = FakeRequest(
+        payload={
+            "fileContent": FASTA_SEQUENCE_PATH.read_text(),
+            "fileName": FASTA_SEQUENCE_PATH.name,
+            "jobTitle": "fasta-demo",
+            "model": str(model_path_stub),
+        },
+        headers={"X-Test-Auth": "true", "Authorization": "Bearer token", "X-Test-Provider": "google.com", "X-Test-Email": "user@example.com"},
+    )
+
+    response = main.submit_job(request)
+    assert _extract_status(response) == 200
+    body = _extract_json(response)
+    job_id = body["jobId"]
+    job_docs = fake_firestore.get_subcollection_docs("users", "test_user_123", "jobhistory")
+    assert job_docs[job_id]["jobTitle"] == "fasta-demo"
+    assert job_docs[job_id]["sequence"] == FASTA_SEQUENCE
+    assert body["brickplot"]["sequence_length"] == brickplot_stub["sequence_length"]
+
+
 def test_submit_job_success(fake_firestore: FakeFirestore, model_path_stub: Path, brickplot_stub: Dict[str, Any]) -> None:
     main.create_user_document(
         SimpleNamespace(data=SimpleNamespace(uid="test_user_123", email="user@example.com", provider_id="google.com"))
@@ -242,6 +297,34 @@ def test_submit_job_success(fake_firestore: FakeFirestore, model_path_stub: Path
     assert job_doc["predictor"] == "standard"
     assert job_doc["predictors"]["standard"] is True
     assert job_doc["brickplot"] == brickplot_stub
+
+
+def test_get_job_history_returns_documents(fake_firestore: FakeFirestore, model_path_stub: Path, brickplot_stub: Dict[str, Any]) -> None:
+    main.create_user_document(
+        SimpleNamespace(data=SimpleNamespace(uid="test_user_123", email="user@example.com", provider_id="google.com"))
+    )
+
+    submit_request = FakeRequest(
+        payload={
+            "sequence": TEXT_SEQUENCE,
+            "jobTitle": "history-job",
+            "model": str(model_path_stub),
+        },
+        headers={"X-Test-Auth": "true", "Authorization": "Bearer token", "X-Test-Provider": "google.com", "X-Test-Email": "user@example.com"},
+    )
+    submit_response = main.submit_job(submit_request)
+    assert _extract_status(submit_response) == 200
+
+    history_request = FakeRequest(
+        payload={},
+        headers={"X-Test-Auth": "true", "Authorization": "Bearer token", "X-Test-Provider": "google.com", "X-Test-Email": "user@example.com"},
+        args={"userId": "test_user_123"},
+    )
+    history_response = main.get_job_history(history_request)
+    assert _extract_status(history_response) == 200
+    history_body = _extract_json(history_response)
+    assert history_body["jobs"]
+    assert history_body["jobs"][0]["jobTitle"] == "history-job"
 
 
 def test_submit_job_appends_linked_list(fake_firestore: FakeFirestore, model_path_stub: Path, brickplot_stub: Dict[str, Any]) -> None:

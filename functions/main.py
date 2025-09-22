@@ -9,40 +9,51 @@ import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
+from types import SimpleNamespace
 from uuid import uuid4
 
 from dotenv import load_dotenv
-try:
-    from firebase_admin import credentials, firestore, get_app, initialize_app
-except ModuleNotFoundError:  # pragma: no cover - local test fallback
+
+FORCE_ADMIN_STUBS = os.getenv("THERMOTERS_FORCE_FIREBASE_ADMIN_STUBS", "0").lower() in {"1", "true", "yes"}
+USING_FIREBASE_ADMIN_STUBS = False
+if not FORCE_ADMIN_STUBS:
+    try:
+        from firebase_admin import credentials, firestore, get_app, initialize_app
+    except ModuleNotFoundError:  # pragma: no cover - local test fallback
+        FORCE_ADMIN_STUBS = True
+
+if FORCE_ADMIN_STUBS:
     if __package__:
         from ._stubs import firebase_admin as firebase_admin_stub  # type: ignore
     else:
         import importlib
-
         firebase_admin_stub = importlib.import_module('_stubs.firebase_admin')
     credentials = firebase_admin_stub.credentials
     firestore = firebase_admin_stub.firestore
     get_app = firebase_admin_stub.get_app
     initialize_app = firebase_admin_stub.initialize_app
-try:
-    from google.cloud import storage
-except ModuleNotFoundError:  # pragma: no cover - storage client not needed for unit tests
-    storage = None  # type: ignore
+    USING_FIREBASE_ADMIN_STUBS = True
 
-try:  # Prefer the real firebase_functions package when available
-    from firebase_functions import https_fn, identity_fn  # type: ignore
-    USING_FIREBASE_STUBS = False
-except ModuleNotFoundError:  # pragma: no cover - executed only in local test environments without the SDK
+FORCE_FUNCTIONS_STUBS = os.getenv("THERMOTERS_FORCE_FUNCTIONS_STUBS", "0").lower() in {"1", "true", "yes"}
+USING_FIREBASE_STUBS = False
+if not FORCE_FUNCTIONS_STUBS:
+    try:
+        from firebase_functions import https_fn, identity_fn  # type: ignore
+    except ModuleNotFoundError:  # pragma: no cover - executed only in local test environments without the SDK
+        FORCE_FUNCTIONS_STUBS = True
+
+if FORCE_FUNCTIONS_STUBS:
     if __package__:
         from ._stubs import firebase_functions as firebase_functions_stub  # type: ignore
-    else:  # Script execution fallback
+    else:
         import importlib
-
-        firebase_functions_stub = importlib.import_module("_stubs.firebase_functions")
+        firebase_functions_stub = importlib.import_module('_stubs.firebase_functions')
     https_fn = firebase_functions_stub.https_fn
     identity_fn = firebase_functions_stub.identity_fn
     USING_FIREBASE_STUBS = True
+else:
+    USING_FIREBASE_STUBS = False
+
 
 if __package__:
     from .src.BrickPlotter import BrickPlotter
@@ -64,13 +75,39 @@ MODELS_DIR = BASE_DIR / "models"
 DEFAULT_MODEL = MODELS_DIR / "fitted_on_Pr" / "model_[3]_stm+flex+cumul+rbs.dmp"
 
 
+
+
+def _activate_admin_stubs(reason: Exception | str):
+    """Switch firebase_admin references to the lightweight stubs."""
+    global credentials, firestore, get_app, initialize_app, USING_FIREBASE_ADMIN_STUBS
+    logger.warning("Falling back to firebase_admin stubs: %s", reason)
+    if __package__:
+        from ._stubs import firebase_admin as firebase_admin_stub  # type: ignore
+    else:
+        import importlib
+        firebase_admin_stub = importlib.import_module('_stubs.firebase_admin')
+    credentials = firebase_admin_stub.credentials
+    firestore = firebase_admin_stub.firestore
+    get_app = firebase_admin_stub.get_app
+    initialize_app = firebase_admin_stub.initialize_app
+    USING_FIREBASE_ADMIN_STUBS = True
+    return firebase_admin_stub
+
+def _serialize_for_json(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _serialize_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_serialize_for_json(item) for item in value]
+    return value
+
 def _resolve_path(path_like: str | os.PathLike[str]) -> Path:
     """Resolve a path relative to the functions package directory."""
     path = Path(path_like)
     if not path.is_absolute():
         path = BASE_DIR / path
     return path
-
 
 def _initialise_firebase_app() -> Any:
     """Initialise the Firebase Admin SDK exactly once."""
@@ -89,7 +126,14 @@ def _initialise_firebase_app() -> Any:
 
 
 app = _initialise_firebase_app()
-db = firestore.client(app)
+try:
+    db = firestore.client(app)
+except Exception as exc:
+    if USING_FIREBASE_ADMIN_STUBS:
+        raise
+    firebase_admin_stub = _activate_admin_stubs(exc)
+    app = initialize_app()
+    db = firebase_admin_stub.firestore.client(app)
 
 def _resolve_auth_provider(user: Any) -> str:
     for attr in ("provider_id", "providerId", "sign_in_provider", "signInProvider"):
@@ -136,6 +180,67 @@ def _decode_test_auth(req: Any) -> None:
         provider = req.headers.get("X-Test-Provider", "test-provider")
         email = req.headers.get("X-Test-Email")
         req.auth = type("MockAuth", (), {"uid": "test_user_123", "token": token, "provider": provider, "email": email})()
+
+
+@https_fn.on_request(region="europe-west2")
+def get_job_history(req: https_fn.Request) -> https_fn.Response:
+    """Return the job history for the requested user."""
+    _decode_test_auth(req)
+    if not getattr(req, "auth", None):
+        return https_fn.Response(
+            status=401,
+            headers={"Content-Type": "application/json"},
+            response=json.dumps({"error": "Unauthorized"}),
+        )
+
+    try:
+        data = req.get_json() or {}
+    except Exception:
+        data = {}
+
+    args = getattr(req, "args", {}) or {}
+    user_id = data.get("userId") or args.get("userId") or getattr(req.auth, "uid", None)  # type: ignore[attr-defined]
+    if not user_id:
+        return https_fn.Response(
+            status=400,
+            headers={"Content-Type": "application/json"},
+            response=json.dumps({"error": "userId is required"}),
+        )
+
+    try:
+        jobs_collection = db.collection('users').document(user_id).collection('jobhistory')
+        direction_desc = getattr(getattr(firestore, 'Query', SimpleNamespace(DESCENDING='DESCENDING')), 'DESCENDING', 'DESCENDING')
+        try:
+            snapshots = jobs_collection.order_by('uploadedAt', direction=direction_desc).stream()
+        except Exception:
+            snapshots = jobs_collection.stream()
+
+        entries = []
+        for snapshot in snapshots:
+            doc_dict = snapshot.to_dict()
+            sort_key = doc_dict.get('uploadedAt')
+            entries.append((sort_key, snapshot.id, doc_dict))
+
+        entries.sort(key=lambda item: item[0] or datetime.min, reverse=True)
+
+        job_history = []
+        for sort_key, doc_id, doc_dict in entries:
+            serialised = _serialize_for_json(doc_dict)
+            serialised['id'] = doc_id
+            job_history.append(serialised)
+
+        return https_fn.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            response=json.dumps({"jobs": job_history}),
+        )
+    except Exception as exc:
+        logger.exception("Error fetching job history: %s", exc)
+        return https_fn.Response(
+            status=500,
+            headers={"Content-Type": "application/json"},
+            response=json.dumps({"error": "Failed to load job history"}),
+        )
 
 
 @https_fn.on_request(region="europe-west2")

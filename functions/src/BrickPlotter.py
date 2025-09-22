@@ -125,6 +125,10 @@ class BrickPlotter:
                 logger.warning("Model returned an empty brick matrix; using fallback heatmap")
                 brick_matrix = self._fallback_matrix(len(sequence))
 
+            brick_matrix = np.squeeze(brick_matrix)
+            if brick_matrix.ndim == 1:
+                brick_matrix = brick_matrix[np.newaxis, :]
+
             brick_matrix = self.remove_high_values(brick_matrix)
 
             fig, ax = plt.subplots(figsize=(12, 8))
@@ -198,6 +202,31 @@ class BrickPlotter:
         gradient = np.linspace(self.min_value, self.max_value, seq_len, dtype=float)
         return np.vstack([np.roll(gradient, shift) for shift in range(rows)])
 
+
+    def _read_fasta_like(self, filepath):
+        """Shared reader for FASTA-style files (.fasta/.fna/.ffn/.faa)."""
+        dict_seqs = {}
+        max_seq_len = 0
+        current_id = None
+        with open(filepath, 'r') as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                if line.startswith('>'):
+                    current_id = line.strip('>').strip()
+                    dict_seqs.setdefault(current_id, '')
+                else:
+                    seq = line.strip('"').strip()
+                    if not seq:
+                        continue
+                    if self.is_rc:
+                        seq = str(Seq(seq).reverse_complement())
+                    dict_seqs[current_id] = dict_seqs.get(current_id, '') + seq
+                    if max_seq_len < len(dict_seqs[current_id]):
+                        max_seq_len = len(dict_seqs[current_id])
+        return dict_seqs, max_seq_len
+
     def _process_csv(self, content: str) -> list[str]:
         sequences: list[str] = []
         reader = csv.DictReader(StringIO(content))
@@ -246,23 +275,8 @@ class BrickPlotter:
                 return {}, 0
 
     def read_fasta(self, fasta_filepath):
-        dict_seqs: dict[str, str] = {}
-        max_seq_len = 0
-        seq_id = None
-        with open(fasta_filepath, "r") as handle:
-            for line in handle:
-                if line.startswith(">"):
-                    seq_id = line.strip(">").strip()
-                    dict_seqs.setdefault(seq_id, "")
-                else:
-                    seq = line.strip('"').strip()
-                    if not seq:
-                        continue
-                    if self.is_rc:
-                        seq = str(Seq(seq).reverse_complement())
-                    dict_seqs[seq_id] = dict_seqs.get(seq_id, "") + seq
-                    max_seq_len = max(max_seq_len, len(dict_seqs[seq_id]))
-        return dict_seqs, max_seq_len
+        ''' Read FASTA file '''
+        return self._read_fasta_like(fasta_filepath)
 
     def read_csv(self, csv_filepath):
         dict_seqs: dict[str, str] = {}
@@ -281,26 +295,14 @@ class BrickPlotter:
         return dict_seqs, max_seq_len
 
     def read_fna(self, fna_filepath):
-        return self.read_fasta(fna_filepath)
+        ''' Read FASTA Nucleic Acids file '''
+        return self._read_fasta_like(fna_filepath)
 
     def read_ffn(self, ffn_filepath):
-        return self.read_fasta(ffn_filepath)
+        ''' Read FASTA Nucleotides of Gene Regions file '''
+        return self._read_fasta_like(ffn_filepath)
 
     def read_faa(self, faa_filepath):
-        dict_seqs: dict[str, str] = {}
-        max_seq_len = 0
-        seq_id = None
-        with open(faa_filepath, "r") as handle:
-            for line in handle:
-                if line.startswith(">"):
-                    seq_id = line.strip(">").strip()
-                    dict_seqs.setdefault(seq_id, "")
-                else:
-                    seq = line.strip('"').strip()
-                    if not seq:
-                        continue
-                    if self.is_rc:
-                        seq = str(Seq(seq).reverse_complement())
-                    dict_seqs[seq_id] = dict_seqs.get(seq_id, "") + seq
-                    max_seq_len = max(max_seq_len, len(dict_seqs[seq_id]))
-        return dict_seqs, max_seq_len
+        ''' Read FASTA Amino Acids file '''
+        return self._read_fasta_like(faa_filepath)
+
