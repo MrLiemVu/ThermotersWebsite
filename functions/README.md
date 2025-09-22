@@ -1,139 +1,97 @@
 # Thermoters Firebase Functions
 
-This directory contains the Firebase Functions backend for the Thermoters gene expression prediction platform.
+Backend for the Thermoters gene expression prediction platform implemented with Firebase Functions (2nd generation) and Python.
 
-## Structure
+## Data Flow Overview
 
-```
-functions/
-├── main.py                 # Main Firebase Functions entry point
-├── BrickPlotter.py        # Core brickplot generation class
-├── requirements.txt        # Python dependencies
-├── test_brickplot.py      # Test script for brickplot functionality
-├── utils/                 # Utility functions
-│   ├── general_functions.py
-│   ├── model_functions.py
-│   └── __init__.py
-└── models/                # Pre-trained model files
-    ├── fitted_on_Pr/
-    └── fitted_on_Pr.Pl.36N/
-```
+### Account Provisioning
 
-## Key Features
-
-### 1. BrickPlotter Class
-- **Complete Implementation**: Full brickplot generation algorithm
-- **File Support**: Handles CSV, FASTA, FNA, FFN, FAA file formats
-- **Error Handling**: Comprehensive validation and error reporting
-- **Visualization**: Generates base64-encoded PNG images
-- **Statistics**: Provides detailed binding energy statistics
-
-### 2. Firebase Functions
-- **submit_job**: Main API endpoint for sequence analysis
-- **create_user_document**: User management on signup
-- **ping**: Health check endpoint
-
-### 3. File Processing
-- **CSV Support**: Extracts sequences from CSV files
-- **FASTA Support**: Handles multiple FASTA formats
-- **Validation**: Ensures sequences contain only valid nucleotides (ACGTU)
-
-## API Endpoints
-
-### POST /submit_job
-Submit a DNA sequence for brickplot analysis.
-
-**Request Body:**
-```json
-{
-  "sequence": "ATCGATCGATCGATCG",
-  "model": "models/fitted_on_Pr/model_[3]_stm+flex+cumul+rbs.dmp",
-  "jobTitle": "My Analysis",
-  "isPlusOne": true,
-  "isRc": false,
-  "maxValue": -2.5,
-  "minValue": -6,
-  "threshold": -2.5,
-  "isPrefixSuffix": true
-}
+```text
+[Client] -- Google Sign-In --> [Firebase Auth]
+    |                                |
+    |            before_user_created  v
+    +-------> [create_user_document] -----> Firestore
+                          |                users/{uid}
+                          |                +- authProvider = google.com
+                          |                +- createdAt, lastLogin timestamps
+                          |                +- firstJob = null, lastJob = null
+                          |                +- monthlyUsage { count = 0, monthYear }
+                          |                +- jobhistory/placeholder (seed doc)
 ```
 
-**Response:**
-```json
-{
-  "message": "Job completed successfully",
-  "jobId": "job_id",
-  "brickplot": {
-    "image_base64": "base64_encoded_png",
-    "matrix": [[energy_values]],
-    "statistics": {
-      "min_energy": -5.2,
-      "max_energy": -2.1,
-      "mean_energy": -3.8,
-      "best_position": {
-        "spacer_config": 2,
-        "sequence_position": 15
-      }
-    },
-    "sequence_length": 16,
-    "sequence": "ATCGATCGATCGATCG"
-  }
-}
+The seed `jobhistory/placeholder` document contains all required fields (`brickplot`, `jobTitle`, `nextTitle`, `predictor`, `predictors.*`, `sequence`, `status`, `uid`, `uploadedAt`) with neutral defaults so downstream tooling always sees the expected schema.
+
+### Job Submission / Linked-List History
+
+```text
+[Client] -- submit_job request --> [Cloud Function]
+    |                                  |
+    |  validate payload + quotas        v
+    |                             Firestore (users/{uid})
+    |                                  |
+    |                       update monthlyUsage.count
+    |                       append jobhistory/{jobId}
+    |                           +- predictor & predictors.*
+    |                           +- jobTitle, sequence
+    |                           +- nextTitle = null
+    |                           +- status = processing
+    |                           +- uploadedAt timestamp
+    |                                  |
+    |<------------- brickplot data -----+
 ```
+
+Each new job document is assigned a unique `jobId`. The user document is updated so `firstJob` keeps the oldest job id, `lastJob` the most recent. The previously newest job receives its `nextTitle` pointer, giving you a singly linked list that makes archival sweeps trivial.
+
+Re-running a job is as simple as sending the same payload again�`submit_job` records a brand-new history node with identical fields and the link chain stays intact.
+
+## Firestore Schema (enforced by functions)
+
+### `users/{uid}`
+- `uid`: string (copied from Auth)
+- `email`: string | null
+- `authProvider`: string (e.g. `google.com`, defaults to `unknown` only if the upstream event omits it)
+- `createdAt`, `lastLogin`: ISO timestamps
+- `firstJob`, `lastJob`: string | null (head/tail of the job linked list)
+- `monthlyUsage`: `{ count: int, monthYear: YYYY-MM }`
+
+### `users/{uid}/jobhistory/{jobId}`
+- `uid`: string (owner)
+- `jobTitle`: string (human label)
+- `predictor`: string (primary predictor used for the run)
+- `predictors`: `{ standard: bool, standardSpacer: bool, standardSpacerCumulative: bool }`
+- `sequence`: string (input sequence)
+- `brickplot`: null while running; replaced with the result payload (matrix + base64 image) after completion
+- `status`: `processing | completed | error | placeholder`
+- `nextTitle`: string | null (forward link in the history chain)
+- `uploadedAt`: timestamp (job creation time)
+- Additional fields captured for reproducibility: `plusOne`, `rc`, `prefixSuffix`, `maxValue`, `minValue`, `threshold`
+
+## Implementation Notes
+
+- `create_user_document` (Auth blocking trigger) now delegates to `_build_user_profile` to populate the required user properties and seeds the placeholder history document.
+- `submit_job` normalizes the predictor flags, generates unique job ids, maintains the linked list pointers (`firstJob`, `lastJob`, `nextTitle`), and persists brickplot output back onto the job document after rendering.
+- Local stubs under `_stubs/` allow the module to run without Firebase SDKs when executing tests.
 
 ## Testing
 
-Run the test script to verify functionality:
+Run the suite from the `functions` directory:
 
 ```bash
-cd functions
-python test_brickplot.py
+python -m pytest
 ```
 
-## Dependencies
+Key coverage:
+- `tests/test_submit_job.py::test_create_user_document_initialises_firestore` checks the seeded user + placeholder job schema.
+- `tests/test_submit_job.py::test_submit_job_success` verifies a full job lifecycle (Firestore writes, schema, returned brickplot payload).
+- `tests/test_submit_job.py::test_submit_job_appends_linked_list` proves the linked-list metadata (`firstJob`, `lastJob`, `nextTitle`) updates correctly across successive submissions.
+- `tests/test_brickplot.py` exercises the `BrickPlotter` class, confirming a non-empty matrix/image is produced and offering an optional `run_demo()` helper to render the plot via `matplotlib.imshow`.
 
-Key dependencies include:
-- `firebase-admin`: Firebase integration
-- `biopython`: Biological sequence processing
-- `numpy`: Numerical computations
-- `matplotlib`: Plot generation
-- `scikit-learn`: Machine learning utilities
-- `scipy`: Scientific computing
+All tests currently pass (`python -m pytest`), and lint-friendly docstrings/comments highlight the non-obvious linkage logic inside the handlers without cluttering the codebase.
 
-## Error Handling
+## Manual Trigger Helpers
 
-The system includes comprehensive error handling:
-- **Input Validation**: Checks for valid DNA sequences
-- **File Validation**: Verifies file formats and content
-- **Model Validation**: Ensures model files exist and are valid
-- **User Limits**: Enforces monthly usage limits
-- **Graceful Degradation**: Returns meaningful error messages
+For ad-hoc verification without deploying:
+- `python tests/run_manual_triggers.py create-user demo_uid --email demo@example.com`
+- `python tests/run_manual_triggers.py submit-job ATCGATCGATCG --job-title demo`
 
-## Security
-
-- **Authentication**: Firebase Auth integration
-- **User Isolation**: Users can only access their own data
-- **Input Sanitization**: Validates all user inputs
-- **Rate Limiting**: Monthly usage limits per user
-
-## Performance
-
-- **Efficient Processing**: Optimized brickplot generation
-- **Image Compression**: Base64 encoding for easy transmission
-- **Caching**: Firebase caching for repeated requests
-- **Background Processing**: Non-blocking job processing
-
-## Deployment
-
-Deploy to Firebase Functions:
-
-```bash
-firebase deploy --only functions
-```
-
-## Monitoring
-
-- **Logging**: Comprehensive logging throughout
-- **Error Tracking**: Detailed error reporting
-- **Performance Metrics**: Execution time tracking
-- **Usage Analytics**: User activity monitoring 
+These helpers use the same code paths and Preserve the Firestore schema described above, so you can watch documents materialise in the emulator or live project while you validate the front-end wiring.

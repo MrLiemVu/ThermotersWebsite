@@ -1,0 +1,25 @@
+[project]
+name = "functions"
+version = "0.1.0"
+description = "Backend for Thermoters Website"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "biopython==1.83",
+    "firebase-admin==6.6.0",
+    "firebase-functions==0.4.2",
+    "flask==3.0.3",
+    "functions-framework==3.*",
+    "gevent==24.2.1",
+    "google-cloud-firestore==2.20.0",
+    "google-cloud-storage>=2.10.0",
+    "gunicorn==21.2.0",
+    "matplotlib==3.8.3",
+    "numpy==1.26.4",
+    "pandas==2.2.3",
+    "pillow>=10.0.0",
+    "python-dotenv>=1.0.1",
+    "scikit-learn==1.6.1",
+    "scipy==1.15.1",
+    "seaborn==0.13.2",
+]

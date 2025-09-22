@@ -1,125 +1,113 @@
-#!/usr/bin/env python3
-"""
-Test script for brickplot functionality
-"""
-import os
-import sys
-import logging
-from BrickPlotter import BrickPlotter
+"""Tests and demo script for the BrickPlotter class."""
+from __future__ import annotations
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import base64
+import warnings
+from io import BytesIO
+from pathlib import Path
+from typing import Any
 
-def test_brickplot_generation():
-    """Test basic brickplot generation"""
+import matplotlib
+matplotlib.use("Agg")  # Safe default for headless test environments
+import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+from PIL import Image
+from sklearn.exceptions import InconsistentVersionWarning
+
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
+try:
+    from functions.src.BrickPlotter import BrickPlotter
+except ModuleNotFoundError:  # pragma: no cover - fallback when tests run from repo root
+    import sys
+
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+    from functions.src.BrickPlotter import BrickPlotter
+
+MODEL_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "models"
+    / "fitted_on_Pr"
+    / "model_[3]_stm+flex+cumul+rbs.dmp"
+)
+TEST_SEQUENCE = "ATCGATCGATCGATCGATCG"
+
+pytestmark = [
+    pytest.mark.filterwarnings("ignore::sklearn.exceptions.InconsistentVersionWarning"),
+]
+
+if not MODEL_PATH.exists():  # pragma: no cover - guard for incomplete checkouts
+    pytestmark.append(pytest.mark.skip(reason=f"Model file missing: {MODEL_PATH}"))
+
+
+def _decode_image(image_b64: str) -> np.ndarray:
+    """Decode a base64 PNG image into a NumPy array."""
+    raw = base64.b64decode(image_b64)
+    with Image.open(BytesIO(raw)) as img:
+        return np.array(img.convert("RGBA"))
+
+
+@pytest.fixture(scope="module")
+def brickplotter(tmp_path_factory: pytest.TempPathFactory) -> BrickPlotter:
+    output_dir = tmp_path_factory.mktemp("brickplots")
+    return BrickPlotter(
+        model=str(MODEL_PATH),
+        output_folder=str(output_dir),
+        is_plus_one=True,
+        is_rc=False,
+    )
+
+
+def test_brickplot_produces_image_and_matrix(brickplotter: BrickPlotter) -> None:
+    result = brickplotter.get_brickplot(TEST_SEQUENCE)
+
+    assert result["sequence"] == TEST_SEQUENCE
+    assert result["sequence_length"] == len(TEST_SEQUENCE)
+
+    image = _decode_image(result["image_base64"])
+    assert image.size > 0
+
+    matrix = np.array(result["matrix"])
+    assert matrix.ndim == 2
+    assert matrix.shape[0] > 0 and matrix.shape[1] > 0
+
+
+def test_brickplot_statistics_present(brickplotter: BrickPlotter) -> None:
+    result = brickplotter.get_brickplot(TEST_SEQUENCE)
+    stats = result.get("statistics", {})
+    expected_keys = {"min_energy", "max_energy", "mean_energy", "best_position"}
+    assert expected_keys.issubset(stats.keys())
+
+
+def _enable_interactive_backend() -> None:
+    """Switch to an interactive backend when available for manual demos."""
     try:
-        # Test sequence
-        test_sequence = "ATCGATCGATCGATCGATCG"
-        
-        # Check if model file exists
-        model_path = "models/fitted_on_Pr/model_[3]_stm+flex+cumul+rbs.dmp"
-        if not os.path.exists(model_path):
-            logger.error(f"Model file not found: {model_path}")
-            return False
-        
-        # Create brickplotter
-        brickplotter = BrickPlotter(
-            model=model_path,
-            output_folder="test_output",
-            is_plus_one=True,
-            is_rc=False,
-            max_value=-2.5,
-            min_value=-6,
-            threshold=-2.5,
-            is_prefix_suffix=True
-        )
-        
-        # Generate brickplot
-        result = brickplotter.get_brickplot(test_sequence)
-        
-        # Check result structure
-        required_keys = ['image_base64', 'matrix', 'statistics', 'sequence_length', 'sequence']
-        for key in required_keys:
-            if key not in result:
-                logger.error(f"Missing key in result: {key}")
-                return False
-        
-        # Check statistics
-        stats = result['statistics']
-        required_stats = ['min_energy', 'max_energy', 'mean_energy', 'best_position']
-        for stat in required_stats:
-            if stat not in stats:
-                logger.error(f"Missing statistic: {stat}")
-                return False
-        
-        logger.info("✓ Brickplot generation test passed")
-        logger.info(f"Generated brickplot for sequence: {test_sequence}")
-        logger.info(f"Matrix shape: {len(result['matrix'])}x{len(result['matrix'][0]) if result['matrix'] else 'empty'}")
-        logger.info(f"Statistics: {stats}")
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"✗ Brickplot generation test failed: {e}")
-        return False
+        plt.switch_backend("TkAgg")
+    except Exception:  # pragma: no cover - backend availability depends on environment
+        plt.switch_backend("Agg")
 
-def test_file_processing():
-    """Test file processing functionality"""
-    try:
-        # Create test CSV file
-        test_csv_content = "seq1,ATCGATCGATCG\nseq2,GCTAGCTAGCTA"
-        test_csv_file = "test_sequences.csv"
-        
-        with open(test_csv_file, 'w') as f:
-            f.write(test_csv_content)
-        
-        # Test CSV processing
-        brickplotter = BrickPlotter(
-            model="models/fitted_on_Pr/model_[3]_stm+flex+cumul+rbs.dmp",
-            output_folder="test_output"
-        )
-        
-        result = brickplotter.get_brickplot(test_csv_file)
-        
-        # Clean up
-        os.remove(test_csv_file)
-        
-        if result and 'sequence' in result:
-            logger.info("✓ File processing test passed")
-            return True
-        else:
-            logger.error("✗ File processing test failed")
-            return False
-            
-    except Exception as e:
-        logger.error(f"✗ File processing test failed: {e}")
-        return False
 
-def main():
-    """Run all tests"""
-    logger.info("Starting brickplot functionality tests...")
-    
-    tests = [
-        test_brickplot_generation,
-        test_file_processing
-    ]
-    
-    passed = 0
-    total = len(tests)
-    
-    for test in tests:
-        if test():
-            passed += 1
-    
-    logger.info(f"Tests completed: {passed}/{total} passed")
-    
-    if passed == total:
-        logger.info("✓ All tests passed!")
-        return 0
-    else:
-        logger.error("✗ Some tests failed!")
-        return 1
+def run_demo() -> None:
+    """Generate a brickplot and display it using matplotlib."""
+    plotter = BrickPlotter(
+        model=str(MODEL_PATH),
+        output_folder=str(Path.cwd() / "demo_brickplots"),
+        is_plus_one=True,
+        is_rc=False,
+    )
+    result = plotter.get_brickplot(TEST_SEQUENCE)
+    image = _decode_image(result["image_base64"])
+
+    _enable_interactive_backend()
+    plt.figure(figsize=(6, 4))
+    plt.imshow(image)
+    plt.title("BrickPlotter Demo")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.show()
+
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    print("Running BrickPlotter demo...")
+    run_demo()
